@@ -1,0 +1,6 @@
+{
+  "name": "DEVWEBIA",
+  "description": "DEVWEB IA — Sehatra SaaS mamorona tranonkala amin'ny alalan'ny Gemini AI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
