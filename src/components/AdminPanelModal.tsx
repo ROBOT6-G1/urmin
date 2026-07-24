@@ -8,13 +8,17 @@ import {
   Check,
   XCircle,
   Plus,
-  RefreshCw,
   Zap,
-  Crown,
-  AlertTriangle,
   Lock,
+  Headphones,
+  ExternalLink,
+  Globe,
+  Send,
+  MessageSquare,
+  Eye,
+  FileCode,
 } from 'lucide-react';
-import { PaymentRequest, UserProfile, GeminiApiKey } from '../types';
+import { PaymentRequest, UserProfile, GeminiApiKey, Project, SupportTicket } from '../types';
 
 interface AdminPanelModalProps {
   user: UserProfile;
@@ -22,6 +26,8 @@ interface AdminPanelModalProps {
   onClose: () => void;
   payments: PaymentRequest[];
   usersList: UserProfile[];
+  allProjects: Project[];
+  tickets: SupportTicket[];
   geminiKeys: GeminiApiKey[];
   onApprovePayment: (paymentId: string) => void;
   onRejectPayment: (paymentId: string) => void;
@@ -29,6 +35,8 @@ interface AdminPanelModalProps {
   onToggleUserPlan: (userId: string) => void;
   onAddGeminiKey: (name: string, key: string) => void;
   onToggleGeminiKey: (keyId: string) => void;
+  onReplyTicket: (ticketId: string, replyText: string) => void;
+  onSelectProjectAndPreview?: (projectId: string) => void;
 }
 
 export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
@@ -37,6 +45,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   onClose,
   payments,
   usersList,
+  allProjects,
+  tickets,
   geminiKeys,
   onApprovePayment,
   onRejectPayment,
@@ -44,10 +54,14 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   onToggleUserPlan,
   onAddGeminiKey,
   onToggleGeminiKey,
+  onReplyTicket,
+  onSelectProjectAndPreview,
 }) => {
-  const [activeTab, setActiveTab] = useState<'payments' | 'users' | 'keys'>('payments');
+  const [activeTab, setActiveTab] = useState<'payments' | 'users' | 'support' | 'keys'>('payments');
   const [newKeyName, setNewKeyName] = useState('');
   const [newKeyValue, setNewKeyValue] = useState('');
+  const [replyInputs, setReplyInputs] = useState<{ [ticketId: string]: string }>({});
+  const [ticketFilter, setTicketFilter] = useState<'all' | 'open' | 'resolved'>('all');
 
   if (!isOpen) return null;
 
@@ -82,11 +96,25 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     setNewKeyValue('');
   };
 
+  const handleSendReply = (ticketId: string) => {
+    const text = replyInputs[ticketId];
+    if (!text || !text.trim()) return;
+    onReplyTicket(ticketId, text.trim());
+    setReplyInputs((prev) => ({ ...prev, [ticketId]: '' }));
+  };
+
   const pendingPayments = payments.filter((p) => p.status === 'pending');
+  const openTickets = tickets.filter((t) => t.status === 'open' || !t.reply);
+
+  const filteredTickets = tickets.filter((t) => {
+    if (ticketFilter === 'open') return t.status === 'open' || !t.reply;
+    if (ticketFilter === 'resolved') return t.status === 'resolved' || !!t.reply;
+    return true;
+  });
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-3xl w-full p-6 sm:p-8 space-y-6 shadow-2xl relative my-auto">
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-4xl w-full p-6 sm:p-8 space-y-6 shadow-2xl relative my-auto">
         <button
           onClick={onClose}
           className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
@@ -96,7 +124,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
         {/* Modal Header */}
         <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
-          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center justify-center shadow-lg">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center justify-center shadow-lg flex-shrink-0">
             <ShieldCheck className="w-6 h-6" />
           </div>
           <div>
@@ -110,19 +138,19 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
         </div>
 
         {/* Tabs */}
-        <div className="grid grid-cols-3 gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-800 text-xs sm:text-sm font-bold">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-800 text-xs font-bold">
           <button
             onClick={() => setActiveTab('payments')}
-            className={`py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 ${
+            className={`py-2.5 px-3 rounded-xl transition-all flex items-center justify-center gap-2 ${
               activeTab === 'payments'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <CreditCard className="w-4 h-4" />
-            <span>Vérification Paiement</span>
+            <CreditCard className="w-4 h-4 flex-shrink-0" />
+            <span className="truncate">Paiements</span>
             {pendingPayments.length > 0 && (
-              <span className="bg-amber-500 text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded-full">
+              <span className="bg-amber-500 text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0">
                 {pendingPayments.length}
               </span>
             )}
@@ -130,26 +158,43 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
           <button
             onClick={() => setActiveTab('users')}
-            className={`py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 ${
+            className={`py-2.5 px-3 rounded-xl transition-all flex items-center justify-center gap-2 ${
               activeTab === 'users'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Users className="w-4 h-4" />
-            <span>Contrôle Utilisateur</span>
+            <Users className="w-4 h-4 flex-shrink-0" />
+            <span className="truncate">Utilisateurs & Sites</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('support')}
+            className={`py-2.5 px-3 rounded-xl transition-all flex items-center justify-center gap-2 ${
+              activeTab === 'support'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Headphones className="w-4 h-4 flex-shrink-0" />
+            <span className="truncate">Support Messages</span>
+            {openTickets.length > 0 && (
+              <span className="bg-purple-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0">
+                {openTickets.length}
+              </span>
+            )}
           </button>
 
           <button
             onClick={() => setActiveTab('keys')}
-            className={`py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 ${
+            className={`py-2.5 px-3 rounded-xl transition-all flex items-center justify-center gap-2 ${
               activeTab === 'keys'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Key className="w-4 h-4" />
-            <span>Clés API Gemini</span>
+            <Key className="w-4 h-4 flex-shrink-0" />
+            <span className="truncate">Clés Gemini</span>
           </button>
         </div>
 
@@ -157,7 +202,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
         {activeTab === 'payments' && (
           <div className="space-y-4 text-xs">
             <div className="text-slate-400">
-              Ireo aloa vola nalefan'ny mpanjifa amin'ny <strong>0323911654 (RAVELOMANANTSOA URMIN)</strong> :
+              Ireo aloa vola Orange Money nalefan'ny mpanjifa amin'ny <strong>032 39 116 54 (RAVELOMANANTSOA URMIN)</strong> :
             </div>
 
             {payments.length === 0 ? (
@@ -165,7 +210,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 Tsy misy aloa vola miandry fanamafisana amin'izao fotoana izao.
               </div>
             ) : (
-              <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar pr-1">
+              <div className="space-y-3 max-h-96 overflow-y-auto custom-scrollbar pr-1">
                 {payments.map((p) => (
                   <div
                     key={p.id}
@@ -194,11 +239,11 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       <div>
                         <div className="text-[10px] text-slate-500">Crédits / Offre :</div>
                         <div className="font-bold text-indigo-300">
-                          {p.isProSubscription ? 'Plan Pro (15 Cr)' : `${p.creditsRequested} Crédits`}
+                          {p.creditsRequested} Crédits
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-slate-500">Téléphone :</div>
+                        <div className="text-[10px] text-slate-500">Téléphone Orange :</div>
                         <div className="font-bold text-slate-200">{p.senderPhone}</div>
                       </div>
                       <div>
@@ -219,7 +264,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                           onClick={() => onApprovePayment(p.id)}
                           className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-all flex items-center gap-1 shadow-md shadow-emerald-600/20"
                         >
-                          <Check className="w-3.5 h-3.5" /> Apetraho Crédit / Valider
+                          <Check className="w-3.5 h-3.5" /> Apetraho 40 Crédits / Valider
                         </button>
                       </div>
                     )}
@@ -230,59 +275,280 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
           </div>
         )}
 
-        {/* TAB 2: Contrôle Utilisateur */}
+        {/* TAB 2: Contrôle Utilisateur & Sites */}
         {activeTab === 'users' && (
           <div className="space-y-4 text-xs">
             <div className="text-slate-400">
-              Ireo mpampiasa DEVWEBIA rehetra sy ny kaontin'izy ireo :
+              Ireo mpampiasa DEVWEBIA rehetra sy ny <strong>site web efa vitany</strong> :
             </div>
 
-            <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar pr-1">
-              {usersList.map((u) => (
-                <div
-                  key={u.id}
-                  className="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
-                >
-                  <div className="space-y-1">
-                    <div className="font-bold text-white text-sm flex items-center gap-2">
-                      <span>{u.email}</span>
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
-                          u.plan === 'pro'
-                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                            : 'bg-slate-800 text-slate-400'
-                        }`}
-                      >
-                        {u.plan}
-                      </span>
-                    </div>
-                    <div className="text-slate-400 font-mono text-[11px] flex items-center gap-3">
-                      <span>⚡ Crédits actuels : <strong className="text-indigo-300">{u.credits}</strong></span>
-                      <span>Stockage : {u.storageUsedMb}MB / {u.plan === 'pro' ? 'Illimité' : '1000MB'}</span>
-                    </div>
-                  </div>
+            <div className="space-y-4 max-h-96 overflow-y-auto custom-scrollbar pr-1">
+              {usersList.map((u) => {
+                const userProjs = allProjects.filter(
+                  (p) =>
+                    p.userId === u.id ||
+                    (p.userEmail && p.userEmail.toLowerCase() === u.email.toLowerCase())
+                );
 
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <button
-                      onClick={() => onUpdateUserCredits(u.id, u.credits + 10)}
-                      className="px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600 text-indigo-200 hover:text-white border border-indigo-500/40 font-bold transition-all text-xs"
-                    >
-                      +10 Crédits
-                    </button>
-                    <button
-                      onClick={() => onToggleUserPlan(u.id)}
-                      className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold transition-all text-xs"
-                    >
-                      Changer Plan
-                    </button>
+                return (
+                  <div
+                    key={u.id}
+                    className="bg-slate-950 border border-slate-800 p-4 rounded-2xl space-y-3"
+                  >
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-900 pb-3">
+                      <div className="space-y-1">
+                        <div className="font-bold text-white text-sm flex items-center gap-2">
+                          <span>{u.email}</span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                              u.plan === 'pro'
+                                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                : 'bg-slate-800 text-slate-400'
+                            }`}
+                          >
+                            {u.plan}
+                          </span>
+                        </div>
+                        <div className="text-slate-400 font-mono text-[11px] flex items-center gap-3">
+                          <span>⚡ Crédits actuels : <strong className="text-indigo-300">{u.credits}</strong></span>
+                          <span>Sites namboarina : <strong className="text-emerald-400">{userProjs.length}</strong></span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <button
+                          onClick={() => onUpdateUserCredits(u.id, u.credits + 10)}
+                          className="px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600 text-indigo-200 hover:text-white border border-indigo-500/40 font-bold transition-all text-xs"
+                        >
+                          +10 Crédits
+                        </button>
+                        <button
+                          onClick={() => onToggleUserPlan(u.id)}
+                          className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold transition-all text-xs"
+                        >
+                          Changer Plan
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Liste des sites pour cet utilisateur */}
+                    <div className="space-y-2 pt-1">
+                      <div className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
+                        <Globe className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>Tranonkala / Sites an'i {u.name || u.email} :</span>
+                      </div>
+
+                      {userProjs.length === 0 ? (
+                        <div className="p-3 bg-slate-900/60 rounded-xl text-slate-500 italic text-[11px] border border-slate-800/80">
+                          Tsy mbola manana site namboarina ity mpampiasa ity.
+                        </div>
+                      ) : (
+                        <div className="grid sm:grid-cols-2 gap-2">
+                          {userProjs.map((p) => (
+                            <div
+                              key={p.id}
+                              className="bg-slate-900/90 border border-slate-800 p-3 rounded-xl flex flex-col justify-between gap-2 hover:border-slate-700 transition-colors"
+                            >
+                              <div>
+                                <div className="font-bold text-white text-xs truncate flex items-center justify-between">
+                                  <span>{p.title}</span>
+                                  <span className="text-[10px] text-slate-500 font-mono">
+                                    {p.files.length} fichiers
+                                  </span>
+                                </div>
+                                <p className="text-slate-400 text-[10px] line-clamp-1 mt-0.5">
+                                  {p.description || 'Tranonkala namboarina tamin\'i DEVWEBIA'}
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-2 pt-1 border-t border-slate-800/60">
+                                {onSelectProjectAndPreview && (
+                                  <button
+                                    onClick={() => {
+                                      onSelectProjectAndPreview(p.id);
+                                      onClose();
+                                    }}
+                                    className="px-2.5 py-1 bg-indigo-600/30 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/40 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1"
+                                  >
+                                    <Eye className="w-3 h-3" />
+                                    <span>Sokafy Preview</span>
+                                  </button>
+                                )}
+
+                                <a
+                                  href={`#preview-${p.id}`}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    if (onSelectProjectAndPreview) {
+                                      onSelectProjectAndPreview(p.id);
+                                      onClose();
+                                    }
+                                  }}
+                                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1"
+                                >
+                                  <ExternalLink className="w-3 h-3 text-emerald-400" />
+                                  <span>Lien Site</span>
+                                </a>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
 
-        {/* TAB 3: Clés API Gemini & Rotation */}
+        {/* TAB 3: Support Client (Messages & Reponses) */}
+        {activeTab === 'support' && (
+          <div className="space-y-4 text-xs">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-slate-400">
+                Hafatra sy olana nalefan'ny mpanjifa amin'ny Support :
+              </div>
+
+              {/* Filter */}
+              <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 font-bold">
+                <button
+                  onClick={() => setTicketFilter('all')}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] ${
+                    ticketFilter === 'all'
+                      ? 'bg-indigo-600 text-white'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Rehetra ({tickets.length})
+                </button>
+                <button
+                  onClick={() => setTicketFilter('open')}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] ${
+                    ticketFilter === 'open'
+                      ? 'bg-purple-600 text-white'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Tsy voavaly ({openTickets.length})
+                </button>
+                <button
+                  onClick={() => setTicketFilter('resolved')}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] ${
+                    ticketFilter === 'resolved'
+                      ? 'bg-emerald-600 text-white'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Voavaly ({tickets.length - openTickets.length})
+                </button>
+              </div>
+            </div>
+
+            {filteredTickets.length === 0 ? (
+              <div className="p-8 text-center text-slate-500 bg-slate-950 rounded-2xl border border-slate-800">
+                Tsy misy hafatra support amin'ity filtre ity.
+              </div>
+            ) : (
+              <div className="space-y-4 max-h-96 overflow-y-auto custom-scrollbar pr-1">
+                {filteredTickets.map((t) => (
+                  <div
+                    key={t.id}
+                    className="bg-slate-950 border border-slate-800 p-4 rounded-2xl space-y-3"
+                  >
+                    <div className="flex items-center justify-between font-bold border-b border-slate-900 pb-2">
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="w-4 h-4 text-purple-400" />
+                        <span className="text-white">{t.userEmail}</span>
+                      </div>
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                          t.status === 'resolved' || t.reply
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            : 'bg-purple-500/20 text-purple-300 border border-purple-500/30 animate-pulse'
+                        }`}
+                      >
+                        {t.status === 'resolved' || t.reply ? 'Voavaly / Résolu' : 'En attente'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="font-extrabold text-amber-300 text-xs">
+                        Sujet : {t.subject}
+                      </div>
+                      <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 text-slate-200 whitespace-pre-wrap font-sans text-xs">
+                        {t.message}
+                      </div>
+                    </div>
+
+                    {/* Image Attachment if uploaded */}
+                    {t.imageUrl && (
+                      <div className="space-y-1">
+                        <div className="text-[10px] text-slate-400 font-bold">
+                          Capture d'écran nalefan'ny client :
+                        </div>
+                        <a
+                          href={t.imageUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-block border border-slate-700 rounded-xl overflow-hidden max-w-xs"
+                        >
+                          <img
+                            src={t.imageUrl}
+                            alt="Capture client"
+                            className="w-full max-h-48 object-cover hover:scale-105 transition-transform"
+                          />
+                        </a>
+                      </div>
+                    )}
+
+                    {/* Existing Reply if already answered */}
+                    {t.reply && (
+                      <div className="bg-emerald-950/60 border border-emerald-500/30 p-3 rounded-xl space-y-1 text-xs">
+                        <div className="font-bold text-emerald-400 flex items-center justify-between text-[11px]">
+                          <span>Valinteny nalefanao amin'ny client :</span>
+                          {t.replyAt && (
+                            <span className="text-[10px] text-emerald-300/70 font-mono">
+                              {new Date(t.replyAt).toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-slate-200 whitespace-pre-wrap">{t.reply}</div>
+                      </div>
+                    )}
+
+                    {/* Reply Form */}
+                    <div className="space-y-2 pt-2 border-t border-slate-900">
+                      <label className="block text-slate-300 font-bold text-[11px]">
+                        {t.reply ? 'Manoatra na mamaly indray (Modifier la réponse) :' : 'Mamaly ity hafatra ity :'}
+                      </label>
+                      <div className="flex gap-2">
+                        <textarea
+                          rows={2}
+                          placeholder="Soraty eto ny valinteny ho an'ity mpanjifa ity..."
+                          value={replyInputs[t.id] ?? ''}
+                          onChange={(e) =>
+                            setReplyInputs((prev) => ({ ...prev, [t.id]: e.target.value }))
+                          }
+                          className="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white outline-none focus:border-purple-500 text-xs resize-none"
+                        />
+                        <button
+                          onClick={() => handleSendReply(t.id)}
+                          className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl transition-all shadow-md shadow-purple-600/20 flex flex-col items-center justify-center gap-1 flex-shrink-0"
+                        >
+                          <Send className="w-4 h-4" />
+                          <span className="text-[10px]">Mandefa</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 4: Clés API Gemini & Rotation */}
         {activeTab === 'keys' && (
           <div className="space-y-4 text-xs">
             <div className="text-slate-400">
@@ -356,3 +622,4 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     </div>
   );
 };
+

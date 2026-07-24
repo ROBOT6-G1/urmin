@@ -16,6 +16,9 @@ import { ReferralModal } from './components/ReferralModal';
 import { FaqModal } from './components/FaqModal';
 import { AdminPanelModal } from './components/AdminPanelModal';
 import { AuthModal } from './components/AuthModal';
+import { GuideModal } from './components/GuideModal';
+import { ProjectsHistoryModal } from './components/ProjectsHistoryModal';
+import { GoogleSeoModal } from './components/GoogleSeoModal';
 import { auth, onAuthStateChanged } from './lib/firebase';
 
 import {
@@ -38,7 +41,10 @@ import {
   savePayments,
   getStoredTickets,
   saveTickets,
+  getStoredGeminiKeys,
+  saveGeminiKeys,
 } from './services/storage';
+import { detectPendingReferralCode, applyReferralCode } from './services/referralService';
 
 export default function App() {
   const [user, setUser] = useState<UserProfile>(getStoredUser);
@@ -82,11 +88,26 @@ export default function App() {
   const [isFaqOpen, setIsFaqOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isGoogleSeoOpen, setIsGoogleSeoOpen] = useState(false);
 
   // Admin Data state
   const [payments, setPayments] = useState<PaymentRequest[]>(getStoredPayments);
   const [tickets, setTickets] = useState<SupportTicket[]>(getStoredTickets);
-  const [geminiKeys, setGeminiKeys] = useState<GeminiApiKey[]>([]);
+  const [geminiKeys, setGeminiKeys] = useState<GeminiApiKey[]>(getStoredGeminiKeys);
+
+  // Sync Gemini Keys to LocalStorage and Backend Server
+  useEffect(() => {
+    saveGeminiKeys(geminiKeys);
+    fetch('/api/admin/keys/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keys: geminiKeys }),
+    }).catch((err) => {
+      console.warn('Error syncing keys with server:', err);
+    });
+  }, [geminiKeys]);
 
   // Sync Firebase Auth
   useEffect(() => {
@@ -96,6 +117,18 @@ export default function App() {
       }
     });
     return () => unsubscribe();
+  }, []);
+
+  // Detect referral code from URL/localStorage on mount
+  useEffect(() => {
+    const pendingCode = detectPendingReferralCode();
+    if (pendingCode && !user.referredBy && user.referralCode !== pendingCode) {
+      applyReferralCode(user, pendingCode).then((res) => {
+        if (res.success && res.updatedUser) {
+          setUser(res.updatedUser);
+        }
+      });
+    }
   }, []);
 
   useEffect(() => {
@@ -158,7 +191,7 @@ export default function App() {
     saveTickets(tickets);
   }, [tickets]);
 
-  // Project Switching
+  // Project Switching & History Management
   const handleSelectProject = (id: string) => {
     setCurrentProjectIdState(id);
     setCurrentProjectId(id);
@@ -168,11 +201,62 @@ export default function App() {
         {
           id: 'msg_' + Date.now(),
           sender: 'ai',
-          text: `Projet privé "${proj.title}" dia vonona. Inona no tiantsika hovaina amin'ity site ity?`,
+          text: `Espace de travail ho an'ny site "${proj.title}" dia vonona. Nampidirina ireo fichiers ${proj.files.length} (${proj.files.map(f => f.name).join(', ')}). Inona no tiantsika hovaina na hanampiana amin'ity site ity?`,
           timestamp: new Date().toISOString(),
           generatedCode: proj.files,
         },
       ]);
+    }
+  };
+
+  const handleModifyWithAI = (id: string) => {
+    handleSelectProject(id);
+    setActiveTab('chat');
+  };
+
+  const handlePreviewProject = (id: string) => {
+    handleSelectProject(id);
+    setActiveTab('preview');
+    setPreviewSubTab('web');
+  };
+
+  const handlePublishProject = (id: string) => {
+    handleSelectProject(id);
+    setActiveTab('preview');
+    setPreviewSubTab('publish');
+  };
+
+  const handleRenameProject = (id: string, newTitle: string) => {
+    setProjects((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, title: newTitle, updatedAt: new Date().toISOString() } : p))
+    );
+  };
+
+  const handleDuplicateProject = (id: string) => {
+    const target = projects.find((p) => p.id === id);
+    if (!target) return;
+
+    const dupId = 'proj_' + Date.now();
+    const duplicatedProj: Project = {
+      ...target,
+      id: dupId,
+      title: `${target.title} (Kopiapo)`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      files: JSON.parse(JSON.stringify(target.files)),
+      versions: JSON.parse(JSON.stringify(target.versions || [])),
+    };
+
+    setProjects((prev) => [duplicatedProj, ...prev]);
+    handleSelectProject(dupId);
+  };
+
+  const handleDeleteProject = (id: string) => {
+    if (projects.length <= 1) return;
+    const remaining = projects.filter((p) => p.id !== id);
+    setProjects(remaining);
+    if (currentProjectIdState === id && remaining.length > 0) {
+      handleSelectProject(remaining[0].id);
     }
   };
 
@@ -255,53 +339,82 @@ export default function App() {
 
       const data = await res.json();
 
-      if (data.success && data.files && data.files.length > 0) {
+      if (data.success) {
         // Deduct 1 credit
         const newCredits = Math.max(0, user.credits - 1);
         const updatedUser = { ...user, credits: newCredits };
         setUser(updatedUser);
 
-        // Update Project files
-        const updatedFiles: CodeFile[] = data.files;
-        const updatedProjects = projects.map((p) => {
-          if (p.id === currentProject.id) {
-            return {
-              ...p,
-              files: updatedFiles,
-              updatedAt: new Date().toISOString(),
-              versions: [
-                ...p.versions,
-                {
-                  id: 'v_' + Date.now(),
-                  timestamp: new Date().toISOString(),
-                  prompt: text,
-                  files: updatedFiles,
-                  summary: data.explanation || 'Mise à jour du site',
-                },
-              ],
-            };
-          }
-          return p;
-        });
+        if (data.files && data.files.length > 0) {
+          // Update Project files & intelligent site title
+          const updatedFiles: CodeFile[] = data.files;
 
-        setProjects(updatedProjects);
+          const updatedProjects = projects.map((p) => {
+            if (p.id === currentProject.id) {
+              let autoTitle = p.title;
+              if (data.siteTitle && data.siteTitle.trim()) {
+                autoTitle = data.siteTitle.trim();
+              } else if (p.title.startsWith('Projet Privé') || p.title.startsWith('Projet Vaovao')) {
+                const idxFile = updatedFiles.find((f) => f.name === 'index.html');
+                if (idxFile) {
+                  const match = idxFile.content.match(/<title>(.*?)<\/title>/i);
+                  if (match && match[1] && match[1].trim() && !match[1].includes('Tranonkala Privé')) {
+                    autoTitle = match[1].trim();
+                  }
+                }
+              }
 
-        const aiMsg: ChatMessage = {
-          id: 'msg_ai_' + Date.now(),
-          sender: 'ai',
-          text: data.explanation || 'Vita am-pahombiazana ny tranonkala!',
-          timestamp: new Date().toISOString(),
-          generatedCode: updatedFiles,
-          creditsDeducted: 1,
-        };
+              return {
+                ...p,
+                title: autoTitle,
+                description: data.explanation || p.description,
+                files: updatedFiles,
+                updatedAt: new Date().toISOString(),
+                versions: [
+                  ...p.versions,
+                  {
+                    id: 'v_' + Date.now(),
+                    timestamp: new Date().toISOString(),
+                    prompt: text,
+                    files: updatedFiles,
+                    summary: data.explanation || 'Mise à jour du site',
+                  },
+                ],
+              };
+            }
+            return p;
+          });
 
-        setMessages((prev) => [...prev, aiMsg]);
+          setProjects(updatedProjects);
 
-        // Auto switch to preview web tab after completion
-        setTimeout(() => {
-          setActiveTab('preview');
-          setPreviewSubTab('web');
-        }, 800);
+          const aiMsg: ChatMessage = {
+            id: 'msg_ai_' + Date.now(),
+            sender: 'ai',
+            text: data.explanation || 'Vita am-pahombiazana ny tranonkala!',
+            timestamp: new Date().toISOString(),
+            generatedCode: updatedFiles,
+            creditsDeducted: 1,
+          };
+
+          setMessages((prev) => [...prev, aiMsg]);
+
+          // Auto switch to preview web tab after code generation
+          setTimeout(() => {
+            setActiveTab('preview');
+            setPreviewSubTab('web');
+          }, 800);
+        } else {
+          // Advisory / Troubleshooting / Conversation response (no code files generated)
+          const aiMsg: ChatMessage = {
+            id: 'msg_ai_' + Date.now(),
+            sender: 'ai',
+            text: data.explanation || 'Indro ny valinteny sy torohevitra momba ny tranonkalanao!',
+            timestamp: new Date().toISOString(),
+            creditsDeducted: 1,
+          };
+
+          setMessages((prev) => [...prev, aiMsg]);
+        }
       } else {
         const errMsg: ChatMessage = {
           id: 'msg_err_' + Date.now(),
@@ -397,30 +510,117 @@ export default function App() {
     );
   };
 
+  const handleReplyTicket = (ticketId: string, replyText: string) => {
+    setTickets((prev) =>
+      prev.map((t) =>
+        t.id === ticketId
+          ? {
+              ...t,
+              status: 'resolved',
+              reply: replyText,
+              replyAt: new Date().toISOString(),
+            }
+          : t
+      )
+    );
+  };
+
+  const defaultClientUser: UserProfile = {
+    id: 'usr_client_default',
+    email: 'client@devwebia.mg',
+    name: 'Mpanjifa DEVWEBIA',
+    plan: 'free',
+    credits: 5, // 5 credits bonus ho an'ny membre vaovao
+    storageUsedMb: 120,
+    referralCode: 'DEVWEB-8921',
+    referralsCount: 2,
+    githubConnected: false,
+    vercelConnected: false,
+    firebaseConnected: true,
+    createdAt: new Date().toISOString(),
+  };
+
+  const adminUser: UserProfile = {
+    id: 'usr_admin',
+    email: 'horlandobe@gmail.com',
+    name: 'Admin Horlando',
+    plan: 'pro',
+    credits: 999,
+    storageUsedMb: 50,
+    referralCode: 'DEVWEB-0001',
+    referralsCount: 50,
+    githubConnected: true,
+    vercelConnected: true,
+    firebaseConnected: true,
+    createdAt: new Date().toISOString(),
+  };
+
+  const allUsersList = Array.from(
+    new Map([
+      [user.email.toLowerCase(), user],
+      [adminUser.email.toLowerCase(), adminUser],
+      [defaultClientUser.email.toLowerCase(), defaultClientUser],
+    ]).values()
+  );
+
   const handleSwitchUser = (email: string, name?: string) => {
     const isPro = email === 'horlandobe@gmail.com';
     const computedUserId = 'usr_' + email.toLowerCase().replace(/[^a-z0-9]/g, '_');
-    setUser({
-      id: computedUserId,
-      email,
-      name: name || (isPro ? 'Admin Horlando' : 'Utilisateur DEVWEBIA'),
-      plan: isPro ? 'pro' : 'free',
-      credits: isPro ? 999 : 15,
-      storageUsedMb: 120,
-      referralCode: 'DEVWEB-' + Math.floor(1000 + Math.random() * 9000),
-      referralsCount: isPro ? 12 : 2,
-      githubConnected: isPro,
-      vercelConnected: isPro,
-      firebaseConnected: true,
-      createdAt: new Date().toISOString(),
+    
+    // Retrieve previously stored user data to prevent wiping out tokens on reload/auth sync
+    const stored = getStoredUser();
+    const sameUser = stored && (stored.id === computedUserId || stored.email.toLowerCase() === email.toLowerCase());
+
+    setUser((prev) => {
+      const existing = sameUser ? stored : prev;
+      return {
+        ...existing,
+        id: computedUserId,
+        email,
+        name: name || existing.name || (isPro ? 'Admin Horlando' : 'Utilisateur DEVWEBIA'),
+        plan: isPro ? 'pro' : (existing.plan || 'free'),
+        credits: isPro ? 999 : (existing.credits || 15),
+        storageUsedMb: existing.storageUsedMb || 120,
+        referralCode: existing.referralCode || ('DEVWEB-' + Math.floor(1000 + Math.random() * 9000)),
+        referralsCount: existing.referralsCount || (isPro ? 12 : 2),
+        githubConnected: Boolean(existing.githubToken || existing.githubUsername || existing.githubConnected || isPro),
+        githubToken: existing.githubToken,
+        githubUsername: existing.githubUsername,
+        vercelConnected: Boolean(existing.vercelToken || existing.vercelConnected || isPro),
+        vercelToken: existing.vercelToken,
+        firebaseConnected: true,
+        createdAt: existing.createdAt || new Date().toISOString(),
+      };
     });
   };
 
-  const handleUpdateProjectFiles = (updatedFiles: CodeFile[]) => {
+  const handleUpdateProjectFiles = (
+    projectIdOrFiles: string | CodeFile[],
+    maybeFiles?: CodeFile[],
+    maybeUrl?: string,
+    lastDeployedAt?: string
+  ) => {
+    let targetProjectId = currentProject.id;
+    let filesToSave: CodeFile[] = [];
+    let urlToSave: string | undefined = undefined;
+
+    if (typeof projectIdOrFiles === 'string') {
+      targetProjectId = projectIdOrFiles;
+      filesToSave = maybeFiles || [];
+      urlToSave = maybeUrl;
+    } else {
+      filesToSave = projectIdOrFiles;
+    }
+
     setProjects((prev) =>
       prev.map((p) =>
-        p.id === currentProject.id
-          ? { ...p, files: updatedFiles, updatedAt: new Date().toISOString() }
+        p.id === targetProjectId
+          ? {
+              ...p,
+              files: filesToSave,
+              ...(urlToSave ? { deployedUrl: urlToSave, lastDeployedAt: lastDeployedAt || new Date().toISOString() } : {}),
+              updatedAt: new Date().toISOString(),
+            }
           : p
       )
     );
@@ -438,6 +638,7 @@ export default function App() {
         onOpenRecharge={() => setIsRechargeOpen(true)}
         onOpenAdmin={() => setIsAdminOpen(true)}
         onOpenAuth={() => setIsAuthOpen(true)}
+        onOpenGuide={() => setIsGuideOpen(true)}
         onNewProject={handleNewProject}
         onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
       />
@@ -459,8 +660,14 @@ export default function App() {
           onOpenSupport={() => setIsSupportOpen(true)}
           onOpenReferral={() => setIsReferralOpen(true)}
           onOpenDomain={() => setIsDomainOpen(true)}
+          onOpenGoogleSeo={() => setIsGoogleSeoOpen(true)}
           onOpenAdmin={() => setIsAdminOpen(true)}
           onLogout={() => setIsAuthOpen(true)}
+          onDuplicateProject={handleDuplicateProject}
+          onDeleteProject={handleDeleteProject}
+          onOpenHistoryModal={() => setIsHistoryModalOpen(true)}
+          onPreviewProject={handlePreviewProject}
+          onPublishProject={handlePublishProject}
         />
 
         {/* Dynamic Main View */}
@@ -469,6 +676,7 @@ export default function App() {
             <ChatView
               user={user}
               currentProject={currentProject}
+              projects={userProjects}
               messages={messages}
               onSendMessage={handleSendMessage}
               onSwitchToPreview={() => {
@@ -477,11 +685,13 @@ export default function App() {
               }}
               onOpenRecharge={() => setIsRechargeOpen(true)}
               isGenerating={isGenerating}
+              onUpdateFiles={handleUpdateProjectFiles}
             />
           ) : (
             <PreviewView
               user={user}
               project={currentProject}
+              projects={userProjects}
               subTab={previewSubTab}
               setSubTab={setPreviewSubTab}
               onOpenConnectedApps={() => setIsConnectedAppsOpen(true)}
@@ -516,10 +726,28 @@ export default function App() {
         }}
       />
 
+      <GoogleSeoModal
+        user={user}
+        projects={userProjects}
+        isOpen={isGoogleSeoOpen}
+        onClose={() => setIsGoogleSeoOpen(false)}
+        onUpdateProjectFiles={handleUpdateProjectFiles}
+        onOpenConnectedApps={() => {
+          setIsGoogleSeoOpen(false);
+          setIsConnectedAppsOpen(true);
+        }}
+        onSendSeoPromptToAI={(promptText) => {
+          setIsGoogleSeoOpen(false);
+          setActiveTab('chat');
+          handleSendMessage(promptText);
+        }}
+      />
+
       <SupportModal
         user={user}
         isOpen={isSupportOpen}
         onClose={() => setIsSupportOpen(false)}
+        tickets={tickets}
         onSubmitTicket={(ticket) =>
           setTickets((prev) => [
             {
@@ -537,6 +765,7 @@ export default function App() {
         user={user}
         isOpen={isReferralOpen}
         onClose={() => setIsReferralOpen(false)}
+        onUpdateUser={(updated) => setUser(updated)}
       />
 
       <FaqModal isOpen={isFaqOpen} onClose={() => setIsFaqOpen(false)} />
@@ -546,7 +775,9 @@ export default function App() {
         isOpen={isAdminOpen}
         onClose={() => setIsAdminOpen(false)}
         payments={payments}
-        usersList={[user]}
+        usersList={allUsersList}
+        allProjects={projects}
+        tickets={tickets}
         geminiKeys={geminiKeys}
         onApprovePayment={handleApprovePayment}
         onRejectPayment={handleRejectPayment}
@@ -554,6 +785,32 @@ export default function App() {
         onToggleUserPlan={handleToggleUserPlan}
         onAddGeminiKey={handleAddGeminiKey}
         onToggleGeminiKey={handleToggleGeminiKey}
+        onReplyTicket={handleReplyTicket}
+        onSelectProjectAndPreview={(projectId) => {
+          handleSelectProject(projectId);
+          setActiveTab('preview');
+          setPreviewSubTab('web');
+        }}
+      />
+
+      <ProjectsHistoryModal
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+        projects={userProjects}
+        currentProjectId={currentProject.id}
+        onSelectProject={handleSelectProject}
+        onNewProject={handleNewProject}
+        onRenameProject={handleRenameProject}
+        onDuplicateProject={handleDuplicateProject}
+        onDeleteProject={handleDeleteProject}
+        onModifyWithAI={handleModifyWithAI}
+        onPreviewProject={handlePreviewProject}
+      />
+
+      <GuideModal
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
+        onOpenConnectedApps={() => setIsConnectedAppsOpen(true)}
       />
 
       <AuthModal

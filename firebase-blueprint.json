@@ -1,0 +1,47 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with plan, credits and referral info",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "plan": { "type": "string" },
+        "credits": { "type": "number" },
+        "referralCode": { "type": "string" },
+        "referredBy": { "type": "string" },
+        "referralsCount": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "email", "referralCode"]
+    },
+    "ReferralRecord": {
+      "title": "ReferralRecord",
+      "description": "Log of a successful user referral",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "referrerId": { "type": "string" },
+        "referrerEmail": { "type": "string" },
+        "referrerCode": { "type": "string" },
+        "referredUserId": { "type": "string" },
+        "referredUserEmail": { "type": "string" },
+        "bonusCredits": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "referrerCode", "referredUserId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Collection of user profiles"
+    },
+    "/referrals/{referralId}": {
+      "schema": { "$ref": "#/entities/ReferralRecord" },
+      "description": "Collection of referral reward transactions"
+    }
+  }
+}

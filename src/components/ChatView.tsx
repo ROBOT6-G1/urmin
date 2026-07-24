@@ -15,30 +15,129 @@ import {
   Newspaper,
   CheckCircle2,
   Loader2,
+  SlidersHorizontal,
+  Building2,
+  GraduationCap,
+  Users,
+  Stethoscope,
+  Home,
+  Plane,
+  Dumbbell,
+  Scale,
+  Wrench,
+  Search,
+  Check,
+  AlertCircle,
+  CheckSquare,
+  RefreshCw,
 } from 'lucide-react';
-import { ChatMessage, Project, UserProfile } from '../types';
+import { ChatMessage, Project, UserProfile, CodeFile } from '../types';
+import { SiteWizardModal } from './SiteWizardModal';
+import { SITE_CATEGORIES } from '../data/siteTemplates';
 
 interface ChatViewProps {
   user: UserProfile;
   currentProject: Project;
+  projects: Project[];
   messages: ChatMessage[];
   onSendMessage: (text: string) => Promise<void>;
   onSwitchToPreview: () => void;
   onOpenRecharge: () => void;
   isGenerating: boolean;
+  onUpdateFiles: (projectIdOrFiles: any, maybeFiles?: any, maybeUrl?: string, lastDeployedAt?: string) => void;
 }
 
 export const ChatView: React.FC<ChatViewProps> = ({
   user,
   currentProject,
+  projects,
   messages,
   onSendMessage,
   onSwitchToPreview,
   onOpenRecharge,
   isGenerating,
+  onUpdateFiles,
 }) => {
   const [promptInput, setPromptInput] = useState('');
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const [selectedSeoProjectId, setSelectedSeoProjectId] = useState(currentProject?.id || '');
+  const [seoTagInput, setSeoTagInput] = useState('');
+  const [seoIsChecked, setSeoIsChecked] = useState(true);
+  const [seoSuccessMessage, setSeoSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (currentProject?.id) {
+      setSelectedSeoProjectId(currentProject.id);
+    }
+  }, [currentProject?.id]);
+
+  const handleInjectSeoTag = async (tag: string, projId: string) => {
+    if (!tag.trim()) {
+      alert("Ampidiro ny balise de vérification azafady.");
+      return;
+    }
+    if (!seoIsChecked) {
+      alert("Mba jereo ilay checkbox fanekena azafady mba ahafahan'ny IA mampiditra azy.");
+      return;
+    }
+
+    const targetProject = projects.find((p) => p.id === projId);
+    if (!targetProject) {
+      alert("Tsy hita ilay projet.");
+      return;
+    }
+
+    let rawFiles = targetProject.files || [];
+    if (typeof rawFiles === 'string') {
+      try {
+        rawFiles = JSON.parse(rawFiles);
+      } catch (e) {
+        rawFiles = [];
+      }
+    }
+    const filesList = [...rawFiles];
+    const indexFileIndex = filesList.findIndex((f: any) => f.name === 'index.html');
+
+    let tagToInject = tag.trim();
+    if (!tagToInject.startsWith('<meta') && !tagToInject.startsWith('<link')) {
+      tagToInject = `<meta name="google-site-verification" content="${tagToInject}" />`;
+    }
+
+    if (indexFileIndex >= 0) {
+      let content = filesList[indexFileIndex].content;
+      if (content.includes('</head>')) {
+        if (content.includes('google-site-verification')) {
+          content = content.replace(/<meta[^>]*google-site-verification[^>]*>/i, tagToInject);
+        } else {
+          content = content.replace('</head>', `  ${tagToInject}\n</head>`);
+        }
+      } else {
+        content = `<head>\n  ${tagToInject}\n</head>\n` + content;
+      }
+      filesList[indexFileIndex] = {
+        ...filesList[indexFileIndex],
+        content,
+      };
+    } else {
+      filesList.push({
+        name: 'index.html',
+        language: 'html',
+        content: `<!DOCTYPE html>\n<html lang="mg">\n<head>\n  <meta charset="UTF-8" />\n  <meta name="viewport" content="width=device-width, initial-scale=1.0" />\n  ${tagToInject}\n  <title>${targetProject.title}</title>\n</head>\n<body>\n  <div id="root"><h1>${targetProject.title}</h1></div>\n</body>\n</html>`,
+      });
+    }
+
+    // Call onUpdateFiles to save locally
+    onUpdateFiles(targetProject.id, filesList);
+
+    setSeoSuccessMessage(`Tafiditra soa aman-tsara ny balise de vérification ao amin'ny index.html an'ny "${targetProject.title}"! Azonao atao ny manao "Mettre à jour" na "Publish" an'io projet io amin'ny alalan'ny interface.`);
+    setSeoTagInput('');
+
+    // Trigger AI sync message
+    const promptMessage = `Nampidiriko tao amin'ny projet "${targetProject.title}" ity balise Google Search Console ity: ${tagToInject}. Tehirizo ao amin'ny index.html azafady mba tsy ho very ary asio fanazavana fohy milaza fa tafiditra izany. Conserve ny fichier hafa rehetra tsy hovana ary aza mamorona site vaovao.`;
+    await onSendMessage(promptMessage);
+  };
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -66,6 +165,14 @@ export const ChatView: React.FC<ChatViewProps> = ({
     onSendMessage(presetText);
   };
 
+  const handleGenerateFromWizard = (promptText: string) => {
+    if (user.credits <= 0) {
+      onOpenRecharge();
+      return;
+    }
+    onSendMessage(promptText);
+  };
+
   return (
     <div className="flex-1 flex flex-col h-[calc(100vh-4rem)] bg-slate-950 text-slate-100 overflow-hidden relative">
       {/* Top Banner / Project Info */}
@@ -75,10 +182,18 @@ export const ChatView: React.FC<ChatViewProps> = ({
           <span className="font-bold text-slate-200">{currentProject.title}</span>
           <span className="text-slate-500 hidden sm:inline">• {currentProject.files.length} Fichier(s)</span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <button
+            onClick={() => setIsWizardOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 transition-all font-bold text-xs shadow-sm"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            <span>Assistant 12 Modèles & 10 Options</span>
+          </button>
+          
           <button
             onClick={onSwitchToPreview}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 transition-all font-semibold"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 transition-all font-semibold"
           >
             <Eye className="w-3.5 h-3.5" />
             <span>Mijery alalana (Preview)</span>
@@ -108,7 +223,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 custom-scrollbar max-w-4xl mx-auto w-full">
         {/* Welcome Card if first message */}
         {messages.length === 0 && (
-          <div className="text-center py-10 px-6 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-6 my-auto">
+          <div className="text-center py-8 px-6 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-6 my-auto">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center mx-auto shadow-xl shadow-indigo-500/20">
               <Sparkles className="w-8 h-8" />
             </div>
@@ -117,83 +232,36 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 Inona no tranonkala tianao havoakan'i DEVWEB IA?
               </h2>
               <p className="text-slate-400 text-sm leading-relaxed">
-                Manoratra prompt amin'ny teny Malagasy na Français amina detail feno (Loko, Vokatra, Pejy, Boutons). Mamorona site amin'ny alalan'ny Gemini AI avy hatrany.
+                Mampiasa ny <strong>Assistant Modèles (12 Types de Sites & 10 Options)</strong> mba hanamboarana site feno miaraka amin'ny réponse sélectionnée (IA) na réponse libre.
               </p>
+
+              <button
+                onClick={() => setIsWizardOpen(true)}
+                className="mt-4 px-6 py-3.5 bg-gradient-to-r from-indigo-500 via-purple-600 to-pink-600 hover:from-indigo-400 hover:to-pink-500 text-white font-extrabold rounded-2xl text-sm transition-all shadow-xl shadow-indigo-500/20 inline-flex items-center gap-2"
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+                <span>SOKAFY NY ASSISTANT MODÈLES (12 SITES)</span>
+              </button>
             </div>
 
-            {/* Quick Presets */}
-            <div className="pt-4">
+            {/* Quick Categories Presets */}
+            <div className="pt-4 border-t border-slate-800/80">
               <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
-                Safidio amin'ireto modèle ireto
+                Ireo Modèles 12 azo fidiana (Miaraka amin'ny options 10)
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-left text-xs">
-                <button
-                  onClick={() =>
-                    handleQuickPrompt(
-                      'Mamorona site E-commerce ho ani fivarotana vêtements & accessoires moderne aminny teny Malagasy miaraka aminny panier, cartes produits sy paiement Mvola'
-                    )
-                  }
-                  className="p-3 rounded-xl bg-slate-800/80 hover:bg-indigo-950/60 border border-slate-700/80 hover:border-indigo-500/50 text-slate-300 hover:text-white transition-all flex items-center gap-3 group"
-                >
-                  <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 group-hover:scale-110 transition-transform">
-                    <ShoppingBag className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-slate-200">Site E-Commerce Vokatra</div>
-                    <div className="text-[11px] text-slate-400">Panier, Produits, Mobile Money</div>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() =>
-                    handleQuickPrompt(
-                      'Mamorona site Portfolio professionnel ho ani Développeur Web / Designer miaraka aminny mode sombre, projets, compétences sy formulaire de contact'
-                    )
-                  }
-                  className="p-3 rounded-xl bg-slate-800/80 hover:bg-indigo-950/60 border border-slate-700/80 hover:border-indigo-500/50 text-slate-300 hover:text-white transition-all flex items-center gap-3 group"
-                >
-                  <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 group-hover:scale-110 transition-transform">
-                    <Briefcase className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-slate-200">Portfolio Pro</div>
-                    <div className="text-[11px] text-slate-400">Projets, Formulaire, Compétences</div>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() =>
-                    handleQuickPrompt(
-                      'Mamorona site Restaurant & Tsakitsaky aminny teny Malagasy miaraka aminny Menu, Réservation de table sy Localisation Antananarivo'
-                    )
-                  }
-                  className="p-3 rounded-xl bg-slate-800/80 hover:bg-indigo-950/60 border border-slate-700/80 hover:border-indigo-500/50 text-slate-300 hover:text-white transition-all flex items-center gap-3 group"
-                >
-                  <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 group-hover:scale-110 transition-transform">
-                    <Utensils className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-slate-200">Restaurant & Hotely</div>
-                    <div className="text-[11px] text-slate-400">Menu, Reservation, Adresse</div>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() =>
-                    handleQuickPrompt(
-                      'Mamorona Landing Page ho ani Agence Digital / Marketing ao Madagascar miaraka aminny Tarifs, FAQ sy Témoignages clients'
-                    )
-                  }
-                  className="p-3 rounded-xl bg-slate-800/80 hover:bg-indigo-950/60 border border-slate-700/80 hover:border-indigo-500/50 text-slate-300 hover:text-white transition-all flex items-center gap-3 group"
-                >
-                  <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400 group-hover:scale-110 transition-transform">
-                    <Globe className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-slate-200">Landing Page Agence</div>
-                    <div className="text-[11px] text-slate-400">Offres, Témoignages, Tarifs</div>
-                  </div>
-                </button>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 text-left text-xs">
+                {SITE_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setIsWizardOpen(true)}
+                    className="p-3 rounded-xl bg-slate-800/80 hover:bg-indigo-950/80 border border-slate-700/80 hover:border-indigo-500/50 text-slate-300 hover:text-white transition-all flex items-center gap-2.5 group"
+                  >
+                    <div className="w-2 h-2 rounded-full bg-indigo-400 group-hover:scale-125 transition-transform" />
+                    <span className="font-bold truncate text-[11px] text-slate-200 group-hover:text-white">
+                      {cat.name}
+                    </span>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -221,6 +289,74 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 }`}
               >
                 <div className="whitespace-pre-wrap">{msg.text}</div>
+
+                {!isUser && (msg.text.toLowerCase().includes('search console') || msg.text.toLowerCase().includes('google-site-verification') || msg.text.toLowerCase().includes('site-verification') || msg.text.toLowerCase().includes('balise')) && (
+                  <div className="mt-3 p-4 bg-slate-950 rounded-xl border border-indigo-500/30 space-y-3.5">
+                    <div className="flex items-center gap-2 text-indigo-400 font-bold text-[11px]">
+                      <Search className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>Fitaovana fampidirana Balise Google SEO (IA)</span>
+                    </div>
+
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      Ampidiro eto ambany ny balise de vérification HTML azonao avy amin'ny Google Search Console mba hampidirana azy mivantana ao amin'ny <code className="text-indigo-300">index.html</code>.
+                    </p>
+
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-bold text-slate-300 uppercase tracking-wider">
+                        Projet tiana hampidirana :
+                      </label>
+                      <select
+                        value={selectedSeoProjectId}
+                        onChange={(e) => setSelectedSeoProjectId(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white font-medium outline-none focus:border-indigo-500 text-xs"
+                      >
+                        {projects.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.title}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-bold text-slate-300 uppercase tracking-wider">
+                        Balise Google site-verification (HTML Tag) :
+                      </label>
+                      <textarea
+                        rows={2}
+                        placeholder='Ohatra: <meta name="google-site-verification" content="..." />'
+                        value={seoTagInput}
+                        onChange={(e) => setSeoTagInput(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-white font-mono outline-none focus:border-indigo-500 text-xs"
+                      />
+                    </div>
+
+                    <label className="flex items-start gap-2 text-[11px] text-slate-300 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={seoIsChecked}
+                        onChange={(e) => setSeoIsChecked(e.target.checked)}
+                        className="mt-0.5 rounded border-slate-800 bg-slate-900 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span>Manome alalana an'i DEVWEB IA hampiditra an'ity balise ity ao amin'ny fichier index.html an'ity projet voafidy ity.</span>
+                    </label>
+
+                    {seoSuccessMessage && (
+                      <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg text-xs flex items-start gap-1.5 leading-relaxed">
+                        <Check className="w-4 h-4 shrink-0 mt-0.5" />
+                        <span>{seoSuccessMessage}</span>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => handleInjectSeoTag(seoTagInput, selectedSeoProjectId)}
+                      className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-extrabold text-[11px] rounded-lg flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                      <span>Ampidiro ao amin'ny Code index.html (IA)</span>
+                    </button>
+                  </div>
+                )}
 
                 {/* Generated Code Badge Notification */}
                 {msg.generatedCode && msg.generatedCode.length > 0 && (
@@ -312,6 +448,13 @@ export const ChatView: React.FC<ChatViewProps> = ({
           </div>
         </form>
       </div>
+
+      {/* Interactive Site Generator Wizard Modal */}
+      <SiteWizardModal
+        isOpen={isWizardOpen}
+        onClose={() => setIsWizardOpen(false)}
+        onGenerateSite={handleGenerateFromWizard}
+      />
     </div>
   );
 };

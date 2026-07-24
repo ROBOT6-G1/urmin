@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Github, Globe, Database, Check, Plug, Flame, Lock } from 'lucide-react';
+import { X, Github, Globe, Check, Flame, Lock, ExternalLink } from 'lucide-react';
 import { UserProfile } from '../types';
 import firebaseConfigData from '../../firebase-applet-config.json';
 
@@ -150,6 +150,19 @@ export const ConnectedAppsModal: React.FC<ConnectedAppsModalProps> = ({
               )}
             </div>
 
+            <div className="flex items-center justify-between text-[11px] text-slate-400">
+              <span>Soraty eto ny pseudo sy Token GitHub-nao :</span>
+              <a
+                href="https://github.com/settings/tokens"
+                target="_blank"
+                rel="noreferrer"
+                className="text-indigo-400 hover:text-indigo-300 hover:underline font-bold flex items-center gap-1 bg-indigo-950/60 px-2 py-0.5 rounded-lg border border-indigo-500/30"
+              >
+                <ExternalLink className="w-3 h-3" />
+                <span>Maka GitHub Token eto ↗</span>
+              </a>
+            </div>
+
             <div className="grid sm:grid-cols-2 gap-2">
               <input
                 type="text"
@@ -182,6 +195,19 @@ export const ConnectedAppsModal: React.FC<ConnectedAppsModalProps> = ({
               ) : (
                 <span className="text-amber-400 font-bold">Non lié</span>
               )}
+            </div>
+
+            <div className="flex items-center justify-between text-[11px] text-slate-400">
+              <span>Soraty eto ny Vercel Auth Token-nao :</span>
+              <a
+                href="https://vercel.com/account/tokens"
+                target="_blank"
+                rel="noreferrer"
+                className="text-cyan-400 hover:text-cyan-300 hover:underline font-bold flex items-center gap-1 bg-cyan-950/60 px-2 py-0.5 rounded-lg border border-cyan-500/30"
+              >
+                <ExternalLink className="w-3 h-3" />
+                <span>Maka Vercel Token eto ↗</span>
+              </a>
             </div>
 
             <input

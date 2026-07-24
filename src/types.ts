@@ -1,5 +1,16 @@
 export type UserPlan = 'free' | 'pro';
 
+export interface ReferralRecord {
+  id: string;
+  referrerId: string;
+  referrerEmail: string;
+  referrerCode: string;
+  referredUserId: string;
+  referredUserEmail: string;
+  bonusCredits: number;
+  createdAt: string;
+}
+
 export interface UserProfile {
   id: string;
   email: string;
@@ -54,6 +65,7 @@ export interface Project {
   files: CodeFile[];
   versions: ProjectVersion[];
   deployedUrl?: string;
+  lastDeployedAt?: string;
   customDomain?: string;
   githubRepo?: string;
   firebaseLinked?: boolean;
@@ -97,6 +109,7 @@ export interface SupportTicket {
   status: 'open' | 'in_progress' | 'resolved';
   createdAt: string;
   reply?: string;
+  replyAt?: string;
 }
 
 export interface GeminiApiKey {

@@ -11,6 +11,7 @@ import {
   User,
   PlusCircle,
   Crown,
+  BookOpen,
 } from 'lucide-react';
 import { UserProfile } from '../types';
 
@@ -23,6 +24,7 @@ interface NavbarProps {
   onOpenRecharge: () => void;
   onOpenAdmin: () => void;
   onOpenAuth: () => void;
+  onOpenGuide: () => void;
   onNewProject: () => void;
   onToggleSidebar: () => void;
 }
@@ -36,6 +38,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenRecharge,
   onOpenAdmin,
   onOpenAuth,
+  onOpenGuide,
   onNewProject,
   onToggleSidebar,
 }) => {
@@ -121,10 +124,32 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Eye className="w-4 h-4" />
             <span>Preview</span>
           </button>
+
+          {/* d. Publish Button in Navbar header */}
+          <button
+            onClick={() => {
+              setActiveTab('preview');
+              setPreviewSubTab('publish');
+            }}
+            className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600/30 border border-indigo-500/50 text-indigo-300 hover:bg-indigo-600 hover:text-white transition-all shadow-md shadow-indigo-600/20"
+            title="Publier sur Vercel"
+          >
+            <Rocket className="w-4 h-4 text-indigo-400" />
+            <span className="hidden xs:inline">Publish</span>
+          </button>
         </div>
 
         {/* Right Action Icons & Admin Toggle */}
         <div className="flex items-center gap-2">
+          <button
+            onClick={onOpenGuide}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-950/80 border border-indigo-500/40 text-indigo-300 hover:bg-indigo-900 text-xs font-bold transition-all shadow-md"
+            title="Guide & Toromarika IA"
+          >
+            <BookOpen className="w-4 h-4 text-indigo-400" />
+            <span className="hidden sm:inline">Guide IA</span>
+          </button>
+
           {isAdmin && (
             <button
               onClick={onOpenAdmin}

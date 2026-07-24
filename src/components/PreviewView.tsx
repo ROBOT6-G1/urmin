@@ -16,6 +16,7 @@ import {
   Sparkles,
   FileCode,
   ShieldAlert,
+  AlertTriangle,
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { Project, UserProfile, CodeFile } from '../types';
@@ -23,23 +24,38 @@ import { Project, UserProfile, CodeFile } from '../types';
 interface PreviewViewProps {
   user: UserProfile;
   project: Project;
+  projects?: Project[];
   subTab: 'web' | 'code' | 'publish' | 'download';
   setSubTab: (subTab: 'web' | 'code' | 'publish' | 'download') => void;
   onOpenConnectedApps: () => void;
-  onUpdateFiles: (files: CodeFile[]) => void;
+  onUpdateFiles: (projectIdOrFiles: any, maybeFiles?: any, maybeUrl?: string, lastDeployedAt?: string) => void;
 }
 
 export const PreviewView: React.FC<PreviewViewProps> = ({
   user,
   project,
+  projects,
   subTab,
   setSubTab,
   onOpenConnectedApps,
   onUpdateFiles,
 }) => {
+  // Normalize project.files safely
+  let rawFiles = project.files || [];
+  if (typeof rawFiles === 'string') {
+    try {
+      rawFiles = JSON.parse(rawFiles);
+    } catch (e) {
+      rawFiles = [];
+    }
+  }
+  const files: any[] = Array.isArray(rawFiles) && rawFiles.length > 0 ? rawFiles : [
+    { name: 'index.html', path: 'index.html', content: `<!DOCTYPE html><html><head><title>${project.title}</title></head><body><div id="root"><h1>${project.title}</h1></div></body></html>` }
+  ];
+
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [selectedFileName, setSelectedFileName] = useState<string>(
-    project.files[0]?.name || 'index.html'
+    files[0]?.name || 'index.html'
   );
   const [copiedCode, setCopiedCode] = useState(false);
   const [repoName, setRepoName] = useState<string>(
@@ -47,16 +63,90 @@ export const PreviewView: React.FC<PreviewViewProps> = ({
   );
   const [isDeploying, setIsDeploying] = useState(false);
   const [deployStep, setDeployStep] = useState<string>('');
+  const [deployError, setDeployError] = useState<string | null>(null);
   const [liveUrl, setLiveUrl] = useState<string | null>(project.deployedUrl || null);
   const [isZipping, setIsZipping] = useState(false);
+  const [updatingProjectId, setUpdatingProjectId] = useState<string | null>(null);
 
-  const selectedFile = project.files.find((f) => f.name === selectedFileName) || project.files[0];
+  const handleUpdateSpecificProject = async (p: Project) => {
+    if (!user.vercelToken || !user.vercelToken.trim()) {
+      alert("Token Vercel manokana (vc_...) no ilaina mba hahafahana manao publication mivantana. Ampidiro ao amin'ny Apps Connectées ny Token Vercel-nao.");
+      onOpenConnectedApps();
+      return;
+    }
+
+    setUpdatingProjectId(p.id);
+
+    try {
+      let pRawFiles = p.files || [];
+      if (typeof pRawFiles === 'string') {
+        try { pRawFiles = JSON.parse(pRawFiles); } catch (e) { pRawFiles = []; }
+      }
+      const pFiles = Array.isArray(pRawFiles) && pRawFiles.length > 0 ? pRawFiles : [
+        { name: 'index.html', path: 'index.html', content: `<!DOCTYPE html><html><head><title>${p.title}</title></head><body><div id="root"><h1>${p.title}</h1></div></body></html>` }
+      ];
+
+      const pRepoName = p.githubRepo || p.title.toLowerCase().replace(/[^a-z0-9-]/g, '-') + '-site';
+
+      // 1. Sync to GitHub
+      if (user.githubToken && user.githubUsername) {
+        await fetch('/api/deploy/github', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            githubToken: user.githubToken,
+            githubUsername: user.githubUsername,
+            repoName: pRepoName,
+            files: pFiles,
+          }),
+        });
+      }
+
+      // 2. Deploy to Vercel
+      const vercelRes = await fetch('/api/deploy/vercel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vercelToken: user.vercelToken,
+          repoName: pRepoName,
+          files: pFiles,
+        }),
+      });
+
+      const vercelData = await vercelRes.json();
+      if (!vercelRes.ok || !vercelData.success) {
+        throw new Error(vercelData.error || 'Tsy nahatomombana ny déploiement Vercel.');
+      }
+
+      const finalUrl = vercelData.url || vercelData.aliasUrl;
+      
+      p.deployedUrl = finalUrl;
+      p.lastDeployedAt = new Date().toISOString();
+      p.githubRepo = pRepoName;
+
+      // Update in global state
+      onUpdateFiles(p.id, pFiles, finalUrl, new Date().toISOString());
+
+      if (p.id === project.id) {
+        setLiveUrl(finalUrl);
+      }
+
+      alert("Tafakatra soa aman-tsara ny mise à jour ho an'ny projet: " + p.title);
+    } catch (err: any) {
+      console.error('Error updating specific project:', err);
+      alert("Nisy olana tamin'ny mise à jour: " + (err.message || String(err)));
+    } finally {
+      setUpdatingProjectId(null);
+    }
+  };
+
+  const selectedFile = files.find((f: any) => f && f.name === selectedFileName) || files[0];
 
   // Combine HTML + CSS + JS into single bundle for iframe preview if separate
   const getCombinedHtml = () => {
-    const htmlFile = project.files.find((f) => f.name.endsWith('.html')) || project.files[0];
-    const cssFile = project.files.find((f) => f.name.endsWith('.css'));
-    const jsFile = project.files.find((f) => f.name.endsWith('.js'));
+    const htmlFile = files.find((f: any) => f && f.name && f.name.endsWith('.html')) || files[0];
+    const cssFile = files.find((f: any) => f && f.name && f.name.endsWith('.css'));
+    const jsFile = files.find((f: any) => f && f.name && f.name.endsWith('.js'));
 
     if (!htmlFile) return '<h1>Aucun contenu HTML</h1>';
 
@@ -93,8 +183,10 @@ export const PreviewView: React.FC<PreviewViewProps> = ({
       setIsZipping(true);
       const zip = new JSZip();
 
-      project.files.forEach((file) => {
-        zip.file(file.name, file.content);
+      files.forEach((file: any) => {
+        if (file && file.name) {
+          zip.file(file.name, file.content || '');
+        }
       });
 
       // Add README.md
@@ -120,30 +212,71 @@ export const PreviewView: React.FC<PreviewViewProps> = ({
   };
 
   const handleDeployVercel = async () => {
+    if (!user.vercelToken || !user.vercelToken.trim()) {
+      setDeployError('Token Vercel manokana (vc_...) no ilaina mba hahafahana manao publication mivantana. Ampidiro ao amin\'ny kaonty connectés ny Token Vercel-nao.');
+      onOpenConnectedApps();
+      return;
+    }
+
     if (!user.githubConnected || !user.vercelConnected) {
       onOpenConnectedApps();
       return;
     }
 
     setIsDeploying(true);
-    setDeployStep('Connexion à GitHub API...');
+    setDeployError(null);
 
-    await new Promise((r) => setTimeout(r, 1200));
-    setDeployStep(`Création du dépôt GitHub : ${user.githubUsername || 'user'}/${repoName}...`);
+    try {
+      // Step 1: Sync and push repository files to GitHub if token is set
+      if (user.githubToken && user.githubUsername) {
+        setDeployStep(`Mampifandray sy mandefa ny fichier ao amin'ny GitHub (${user.githubUsername}/${repoName})...`);
+        const ghRes = await fetch('/api/deploy/github', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            githubToken: user.githubToken,
+            githubUsername: user.githubUsername,
+            repoName,
+            files,
+          }),
+        });
 
-    await new Promise((r) => setTimeout(r, 1500));
-    setDeployStep(`Push des fichiers vers https://github.com/${user.githubUsername || 'user'}/${repoName}...`);
+        const ghData = await ghRes.json();
+        if (!ghRes.ok) {
+          console.warn('Notice sync GitHub:', ghData);
+        }
+      }
 
-    await new Promise((r) => setTimeout(r, 1500));
-    setDeployStep('Transtipage et Déploiement automatique Vercel CDN...');
+      // Step 2: Deploy to Vercel via backend API
+      setDeployStep('Manatanteraka ny Déploiement Réel amin\'ny Vercel CDN...');
+      const vercelRes = await fetch('/api/deploy/vercel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vercelToken: user.vercelToken,
+          repoName,
+          files,
+        }),
+      });
 
-    await new Promise((r) => setTimeout(r, 1800));
+      const vercelData = await vercelRes.json();
 
-    const generatedSlug = repoName.toLowerCase().replace(/[^a-z0-9-]/g, '-') + '.vercel.app';
-    const finalUrl = `https://${generatedSlug}`;
-    setLiveUrl(finalUrl);
-    project.deployedUrl = finalUrl;
-    setIsDeploying(false);
+      if (!vercelRes.ok || !vercelData.success) {
+        throw new Error(vercelData.error || 'Tsy nahatomombana ny déploiement ao amin\'ny Vercel.');
+      }
+
+      const finalUrl = vercelData.url || vercelData.aliasUrl;
+      setLiveUrl(finalUrl);
+      project.deployedUrl = finalUrl;
+      project.lastDeployedAt = new Date().toISOString();
+      project.githubRepo = repoName;
+      onUpdateFiles(project.id, files, finalUrl, new Date().toISOString());
+    } catch (err: any) {
+      console.error('Deployment error:', err);
+      setDeployError(err.message || 'Misy olana tamin\'ny publication mivantana.');
+    } finally {
+      setIsDeploying(false);
+    }
   };
 
   return (
@@ -286,7 +419,7 @@ export const PreviewView: React.FC<PreviewViewProps> = ({
           {/* File Tabs */}
           <div className="bg-slate-900 border-b border-slate-800 px-4 py-2 flex items-center justify-between text-xs overflow-x-auto">
             <div className="flex items-center gap-2">
-              {project.files.map((f) => (
+              {files.map((f: any) => f && f.name && (
                 <button
                   key={f.name}
                   onClick={() => setSelectedFileName(f.name)}
@@ -326,8 +459,8 @@ export const PreviewView: React.FC<PreviewViewProps> = ({
               value={selectedFile?.content || ''}
               onChange={(e) => {
                 const newContent = e.target.value;
-                const updated = project.files.map((f) =>
-                  f.name === selectedFileName ? { ...f, content: newContent } : f
+                const updated = files.map((f: any) =>
+                  f && f.name === selectedFileName ? { ...f, content: newContent } : f
                 );
                 onUpdateFiles(updated);
               }}
@@ -359,11 +492,13 @@ export const PreviewView: React.FC<PreviewViewProps> = ({
                   <span className="font-bold text-slate-200">Compte GitHub</span>
                 </div>
                 {user.githubConnected ? (
-                  <span className="text-emerald-400 font-bold flex items-center gap-1">
+                  <span className="text-emerald-400 font-bold flex items-center gap-1 bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-500/30">
                     <Check className="w-3.5 h-3.5" /> Connecté ({user.githubUsername || 'OK'})
                   </span>
                 ) : (
-                  <span className="text-rose-400 font-bold">Non connecté</span>
+                  <span className="text-rose-400 font-bold bg-rose-950/60 px-2.5 py-1 rounded-lg border border-rose-500/30">
+                    ✕ Non connecté
+                  </span>
                 )}
               </div>
 
@@ -373,12 +508,39 @@ export const PreviewView: React.FC<PreviewViewProps> = ({
                   <span className="font-bold text-slate-200">Accès API Vercel</span>
                 </div>
                 {user.vercelConnected ? (
-                  <span className="text-emerald-400 font-bold flex items-center gap-1">
+                  <span className="text-emerald-400 font-bold flex items-center gap-1 bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-500/30">
                     <Check className="w-3.5 h-3.5" /> Connecté
                   </span>
                 ) : (
-                  <span className="text-rose-400 font-bold">Non connecté</span>
+                  <span className="text-rose-400 font-bold bg-rose-950/60 px-2.5 py-1 rounded-lg border border-rose-500/30">
+                    ✕ Non connecté
+                  </span>
                 )}
+              </div>
+
+              {/* Direct token generator links */}
+              <div className="border-t border-slate-800 pt-3 space-y-2">
+                <div className="text-[11px] font-bold text-slate-400">Lien direct hangalana token :</div>
+                <div className="grid sm:grid-cols-2 gap-2">
+                  <a
+                    href="https://github.com/settings/tokens"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-indigo-300 font-bold text-[11px] transition-all"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Maka GitHub Token ↗</span>
+                  </a>
+                  <a
+                    href="https://vercel.com/account/tokens"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-cyan-300 font-bold text-[11px] transition-all"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Maka Vercel Token ↗</span>
+                  </a>
+                </div>
               </div>
 
               {/* GitHub Repository Name Input */}
@@ -409,17 +571,42 @@ export const PreviewView: React.FC<PreviewViewProps> = ({
 
             {/* Prompt to connect if missing */}
             {(!user.githubConnected || !user.vercelConnected) && (
-              <div className="bg-amber-950/50 border border-amber-800/80 p-4 rounded-2xl text-amber-200 text-xs space-y-2">
-                <div className="font-bold flex items-center gap-2">
-                  <ShieldAlert className="w-4 h-4 text-amber-400" />
-                  <span>Étape obligatoire pour publier :</span>
+              <div className="bg-amber-950/60 border border-amber-500/50 p-4 rounded-2xl text-amber-200 text-xs space-y-3 shadow-lg">
+                <div className="font-bold flex items-center gap-2 text-amber-300 text-sm">
+                  <ShieldAlert className="w-5 h-5 text-amber-400" />
+                  <span>Étape obligatoire pour la publication :</span>
                 </div>
-                <p>Vous devez d'abord connecter vos comptes GitHub et Vercel dans les applications connectées.</p>
+                <p className="leading-relaxed">
+                  Mbola tsy connectés ny kaontinao <strong>GitHub</strong> sy <strong>Vercel</strong>. Tsy maintsy manao connexion an'ireo ianao aloha vao afaka manao publication direct amin'ny Vercel.
+                </p>
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    onClick={onOpenConnectedApps}
+                    className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs transition-all shadow-md shadow-amber-500/20 flex items-center justify-center gap-2"
+                  >
+                    <Globe className="w-4 h-4" />
+                    <span>Lier mes comptes GitHub & Vercel</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Deploy Error Alert */}
+            {deployError && (
+              <div className="bg-rose-950/80 border border-rose-500/60 p-4 rounded-2xl text-rose-200 text-xs space-y-2.5 shadow-lg">
+                <div className="font-bold flex items-center gap-2 text-rose-300 text-sm">
+                  <AlertTriangle className="w-5 h-5 text-rose-400" />
+                  <span>Olana tamin'ny publication Vercel :</span>
+                </div>
+                <p className="leading-relaxed font-mono text-[11px] bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-rose-300">
+                  {deployError}
+                </p>
                 <button
                   onClick={onOpenConnectedApps}
-                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition-colors"
+                  className="w-full py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5"
                 >
-                  Lier mes comptes GitHub & Vercel
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>Manamarina / Hanova ny Vercel Auth Token</span>
                 </button>
               </div>
             )}
@@ -460,6 +647,93 @@ export const PreviewView: React.FC<PreviewViewProps> = ({
                 <span>Déployer Automatiquement sur Vercel</span>
               </button>
             )}
+
+            {/* List of all deployed links across projects */}
+            <div className="mt-6 space-y-3 pt-6 border-t border-slate-800 text-left">
+              <div className="text-xs font-black text-white flex items-center gap-2">
+                <Globe className="w-4 h-4 text-cyan-400" />
+                <span>Liens efa déployer rehetra amin'ny projetao :</span>
+              </div>
+              <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                {(projects || [project]).map((p) => {
+                  const url = p.deployedUrl || `https://${(p.githubRepo || p.title.toLowerCase().replace(/[^a-z0-9]/g, '-'))}.vercel.app`;
+                  
+                  // Calculate live update status based on updatedAt and lastDeployedAt timestamps
+                  const isDeployed = !!p.deployedUrl;
+                  const isUpToDate = isDeployed && p.lastDeployedAt && new Date(p.lastDeployedAt) >= new Date(p.updatedAt);
+
+                  return (
+                    <div key={p.id} className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                      <div className="truncate space-y-0.5 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-slate-200 truncate max-w-[120px] block">{p.title}</span>
+                          {isDeployed ? (
+                            isUpToDate ? (
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-black uppercase tracking-wider">
+                                à jour
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] font-black uppercase tracking-wider">
+                                mettre à jour
+                              </span>
+                            )
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[9px] font-bold">
+                              Non publié
+                            </span>
+                          )}
+                        </div>
+                        <a href={url} target="_blank" rel="noreferrer" className="text-cyan-400 font-mono text-[11px] hover:underline truncate block">
+                          {url}
+                        </a>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
+                        {isDeployed && !isUpToDate && (
+                          <button
+                            onClick={() => handleUpdateSpecificProject(p)}
+                            disabled={updatingProjectId === p.id}
+                            className="px-2.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 text-white font-extrabold text-[11px] flex items-center gap-1 transition-all cursor-pointer"
+                            title="Mettre à jour le projet"
+                          >
+                            {updatingProjectId === p.id ? (
+                              <>
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                                <span>Mise à jour...</span>
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw className="w-3 h-3" />
+                                <span>Mettre à jour</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(url);
+                            alert("Kopie soa aman-tsara: " + url);
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[11px] flex items-center gap-1 transition-all"
+                          title="Kopiaina"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copier</span>
+                        </button>
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
+                          title="Sokafy"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       )}

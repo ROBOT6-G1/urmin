@@ -60,8 +60,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
           <h2 className="text-2xl font-black text-white">Authentification Google</h2>
           <p className="text-slate-400 text-xs">
-            Safidy inscripcions tokana amin'ny alalan'ny Google Authentification sy Firebase.
+            Safidy inscriptions tokana amin'ny alalan'ny Google Authentification sy Firebase.
           </p>
+
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold mt-2">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Bonus 5 Crédits azonao maimaimpoana avy hatrany!</span>
+          </div>
         </div>
 
         {/* Primary Google Login Option */}
