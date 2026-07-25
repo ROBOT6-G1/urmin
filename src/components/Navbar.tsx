@@ -109,7 +109,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             }`}
           >
             <MessageSquare className="w-4 h-4" />
-            <span>Chat</span>
+            <span className="hidden sm:inline">Chat</span>
           </button>
 
           {/* c. Preview Button */}
@@ -122,7 +122,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             }`}
           >
             <Eye className="w-4 h-4" />
-            <span>Preview</span>
+            <span className="hidden sm:inline">Preview</span>
           </button>
 
           {/* d. Publish Button in Navbar header */}
@@ -131,7 +131,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               setActiveTab('preview');
               setPreviewSubTab('publish');
             }}
-            className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600/30 border border-indigo-500/50 text-indigo-300 hover:bg-indigo-600 hover:text-white transition-all shadow-md shadow-indigo-600/20"
+            className="hidden sm:flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600/30 border border-indigo-500/50 text-indigo-300 hover:bg-indigo-600 hover:text-white transition-all shadow-md shadow-indigo-600/20"
             title="Publier sur Vercel"
           >
             <Rocket className="w-4 h-4 text-indigo-400" />

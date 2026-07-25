@@ -188,15 +188,17 @@ export const ChatView: React.FC<ChatViewProps> = ({
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 transition-all font-bold text-xs shadow-sm"
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>Assistant 12 Modèles & 10 Options</span>
+            <span className="hidden sm:inline">Assistant 12 Modèles & 10 Options</span>
+            <span className="sm:hidden">Assistant</span>
           </button>
           
           <button
             onClick={onSwitchToPreview}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 transition-all font-semibold"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 transition-all font-semibold text-xs"
           >
             <Eye className="w-3.5 h-3.5" />
-            <span>Mijery alalana (Preview)</span>
+            <span className="hidden sm:inline">Mijery alalana (Preview)</span>
+            <span className="sm:hidden">Preview</span>
           </button>
         </div>
       </div>
