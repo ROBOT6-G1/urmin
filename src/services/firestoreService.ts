@@ -1,0 +1,244 @@
+import { db, auth } from '../lib/firebase';
+import {
+  collection,
+  doc,
+  setDoc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  deleteDoc,
+  orderBy,
+} from 'firebase/firestore';
+import { UserProfile, Project, PaymentRequest, SupportTicket } from '../types';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
+/**
+ * Syncs a user profile with Firestore database.
+ * If user exists, retrieves latest profile data and merges.
+ * If user does not exist, registers the user into Firestore.
+ */
+export async function dbSyncUser(userProfile: UserProfile): Promise<UserProfile> {
+  const path = `users/${userProfile.id}`;
+  try {
+    const userDocRef = doc(db, 'users', userProfile.id);
+    const userSnapshot = await getDoc(userDocRef);
+
+    if (userSnapshot.exists()) {
+      const dbUser = userSnapshot.data() as UserProfile;
+      // Merge local with DB values (DB values take priority for credits/plan)
+      const merged: UserProfile = {
+        ...userProfile,
+        ...dbUser,
+        // Ensure non-sensitive local connections are preserved if not in DB
+        githubConnected: userProfile.githubConnected || dbUser.githubConnected,
+        vercelConnected: userProfile.vercelConnected || dbUser.vercelConnected,
+      };
+      
+      // Update DB to ensure clean consistency
+      await setDoc(userDocRef, merged, { merge: true });
+      return merged;
+    } else {
+      // First time registration
+      await setDoc(userDocRef, userProfile);
+      return userProfile;
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+    return userProfile;
+  }
+}
+
+/**
+ * Saves/updates user profile in Firestore.
+ */
+export async function dbSaveUser(userProfile: UserProfile): Promise<void> {
+  const path = `users/${userProfile.id}`;
+  try {
+    const userDocRef = doc(db, 'users', userProfile.id);
+    await setDoc(userDocRef, userProfile, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+/**
+ * Fetches all projects for a specific user from Firestore.
+ */
+export async function dbFetchUserProjects(userId: string, email: string): Promise<Project[]> {
+  const path = 'projects';
+  try {
+    const projectsRef = collection(db, 'projects');
+    
+    // Fetch both by userId and userEmail
+    const q1 = query(projectsRef, where('userId', '==', userId));
+    const snapshot1 = await getDocs(q1);
+    
+    const projectsMap = new Map<string, Project>();
+    snapshot1.forEach((doc) => {
+      projectsMap.set(doc.id, doc.data() as Project);
+    });
+
+    if (email) {
+      const q2 = query(projectsRef, where('userEmail', '==', email));
+      const snapshot2 = await getDocs(q2);
+      snapshot2.forEach((doc) => {
+        projectsMap.set(doc.id, doc.data() as Project);
+      });
+    }
+
+    return Array.from(projectsMap.values());
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+    return [];
+  }
+}
+
+/**
+ * Saves/updates a project in Firestore.
+ */
+export async function dbSaveProject(project: Project): Promise<void> {
+  const path = `projects/${project.id}`;
+  try {
+    const projectDocRef = doc(db, 'projects', project.id);
+    await setDoc(projectDocRef, project, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+/**
+ * Deletes a project from Firestore.
+ */
+export async function dbDeleteProject(projectId: string): Promise<void> {
+  const path = `projects/${projectId}`;
+  try {
+    const projectDocRef = doc(db, 'projects', projectId);
+    await deleteDoc(projectDocRef);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+/**
+ * Fetches payment requests from Firestore.
+ * Admins fetch all, clients fetch only theirs.
+ */
+export async function dbFetchPayments(userId: string, email: string, isAdmin: boolean): Promise<PaymentRequest[]> {
+  const path = 'payments';
+  try {
+    const paymentsRef = collection(db, 'payments');
+    let q;
+    if (isAdmin) {
+      q = query(paymentsRef);
+    } else {
+      q = query(paymentsRef, where('userId', '==', userId));
+    }
+    const snapshot = await getDocs(q);
+    const payments: PaymentRequest[] = [];
+    snapshot.forEach((doc) => {
+      payments.push(doc.data() as PaymentRequest);
+    });
+    
+    // Sort in-memory to prevent requiring composite indexes initially
+    return payments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+    return [];
+  }
+}
+
+/**
+ * Saves a payment request to Firestore.
+ */
+export async function dbSavePayment(payment: PaymentRequest): Promise<void> {
+  const path = `payments/${payment.id}`;
+  try {
+    const paymentDocRef = doc(db, 'payments', payment.id);
+    await setDoc(paymentDocRef, payment, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+/**
+ * Fetches support tickets from Firestore.
+ * Admins fetch all, clients fetch only theirs.
+ */
+export async function dbFetchTickets(userId: string, email: string, isAdmin: boolean): Promise<SupportTicket[]> {
+  const path = 'tickets';
+  try {
+    const ticketsRef = collection(db, 'tickets');
+    let q;
+    if (isAdmin) {
+      q = query(ticketsRef);
+    } else {
+      q = query(ticketsRef, where('userId', '==', userId));
+    }
+    const snapshot = await getDocs(q);
+    const tickets: SupportTicket[] = [];
+    snapshot.forEach((doc) => {
+      tickets.push(doc.data() as SupportTicket);
+    });
+    return tickets.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+    return [];
+  }
+}
+
+/**
+ * Saves/updates a support ticket in Firestore.
+ */
+export async function dbSaveTicket(ticket: SupportTicket): Promise<void> {
+  const path = `tickets/${ticket.id}`;
+  try {
+    const ticketDocRef = doc(db, 'tickets', ticket.id);
+    await setDoc(ticketDocRef, ticket, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+/**
+ * Fetches all registered users for admin.
+ */
+export async function dbFetchAllUsers(): Promise<UserProfile[]> {
+  const path = 'users';
+  try {
+    const usersRef = collection(db, 'users');
+    const snapshot = await getDocs(usersRef);
+    const users: UserProfile[] = [];
+    snapshot.forEach((doc) => {
+      users.push(doc.data() as UserProfile);
+    });
+    return users;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+    return [];
+  }
+}

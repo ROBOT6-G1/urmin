@@ -45,6 +45,17 @@ import {
   saveGeminiKeys,
 } from './services/storage';
 import { detectPendingReferralCode, applyReferralCode } from './services/referralService';
+import {
+  dbSyncUser,
+  dbSaveUser,
+  dbFetchUserProjects,
+  dbSaveProject,
+  dbDeleteProject,
+  dbFetchPayments,
+  dbSavePayment,
+  dbFetchTickets,
+  dbSaveTicket,
+} from './services/firestoreService';
 
 export default function App() {
   const [user, setUser] = useState<UserProfile>(getStoredUser);
@@ -133,11 +144,88 @@ export default function App() {
 
   useEffect(() => {
     saveUser(user);
+    if (user && user.id && user.id !== 'usr_client_default') {
+      dbSaveUser(user).catch(console.error);
+    }
   }, [user]);
 
   useEffect(() => {
     saveProjects(projects);
   }, [projects]);
+
+  // Synchronize all user and admin data from Firestore on mount / user ID changes
+  useEffect(() => {
+    const syncDatabaseData = async () => {
+      if (!user.id || user.id === 'usr_client_default') return;
+      try {
+        // A. Sync User Profile
+        const syncedUser = await dbSyncUser(user);
+        if (JSON.stringify(syncedUser) !== JSON.stringify(user)) {
+          setUser(syncedUser);
+        }
+
+        // B. Sync Projects
+        const dbProjects = await dbFetchUserProjects(user.id, user.email);
+        if (dbProjects.length > 0) {
+          setProjects((prev) => {
+            // Keep DB projects and any local ones that are not in DB yet
+            const updated = [...dbProjects];
+            prev.forEach((localProj) => {
+              const isUserProj = localProj.userId === user.id || localProj.userEmail === user.email;
+              if (isUserProj && !dbProjects.some((dp) => dp.id === localProj.id)) {
+                updated.push(localProj);
+                dbSaveProject(localProj).catch((e) => console.error('Error uploading local project to DB:', e));
+              }
+            });
+            return updated;
+          });
+        } else {
+          // If no projects in Firestore but user has local projects, upload them
+          const userLocalProjs = projects.filter(
+            (p) => p.userId === user.id || p.userEmail === user.email
+          );
+          for (const localProj of userLocalProjs) {
+            await dbSaveProject(localProj);
+          }
+        }
+
+        // C. Sync Payments
+        const isAdmin = user.email === 'horlandobe@gmail.com';
+        const dbPayments = await dbFetchPayments(user.id, user.email, isAdmin);
+        if (dbPayments.length > 0) {
+          setPayments((prev) => {
+            const updated = [...dbPayments];
+            prev.forEach((lp) => {
+              if (!dbPayments.some((dp) => dp.id === lp.id)) {
+                updated.push(lp);
+                dbSavePayment(lp).catch((e) => console.error('Error uploading local payment to DB:', e));
+              }
+            });
+            return updated;
+          });
+        }
+
+        // D. Sync Tickets
+        const dbTickets = await dbFetchTickets(user.id, user.email, isAdmin);
+        if (dbTickets.length > 0) {
+          setTickets((prev) => {
+            const updated = [...dbTickets];
+            prev.forEach((lt) => {
+              if (!dbTickets.some((dt) => dt.id === lt.id)) {
+                updated.push(lt);
+                dbSaveTicket(lt).catch((e) => console.error('Error uploading local ticket to DB:', e));
+              }
+            });
+            return updated;
+          });
+        }
+      } catch (err) {
+        console.warn('Firestore database sync failed:', err);
+      }
+    };
+
+    syncDatabaseData();
+  }, [user.id]);
 
   // Ensure every user account has an isolated workspace project
   useEffect(() => {
@@ -228,7 +316,14 @@ export default function App() {
 
   const handleRenameProject = (id: string, newTitle: string) => {
     setProjects((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, title: newTitle, updatedAt: new Date().toISOString() } : p))
+      prev.map((p) => {
+        if (p.id === id) {
+          const updated = { ...p, title: newTitle, updatedAt: new Date().toISOString() };
+          dbSaveProject(updated).catch(console.error);
+          return updated;
+        }
+        return p;
+      })
     );
   };
 
@@ -248,6 +343,7 @@ export default function App() {
     };
 
     setProjects((prev) => [duplicatedProj, ...prev]);
+    dbSaveProject(duplicatedProj).catch(console.error);
     handleSelectProject(dupId);
   };
 
@@ -255,6 +351,7 @@ export default function App() {
     if (projects.length <= 1) return;
     const remaining = projects.filter((p) => p.id !== id);
     setProjects(remaining);
+    dbDeleteProject(id).catch(console.error);
     if (currentProjectIdState === id && remaining.length > 0) {
       handleSelectProject(remaining[0].id);
     }
@@ -295,6 +392,7 @@ export default function App() {
     };
 
     setProjects((prev) => [newProj, ...prev]);
+    dbSaveProject(newProj).catch(console.error);
     setCurrentProjectIdState(newId);
     setCurrentProjectId(newId);
     setActiveTab('chat');
@@ -386,6 +484,10 @@ export default function App() {
           });
 
           setProjects(updatedProjects);
+          const activeUpdatedProj = updatedProjects.find((p) => p.id === currentProject.id);
+          if (activeUpdatedProj) {
+            dbSaveProject(activeUpdatedProj).catch(console.error);
+          }
 
           const aiMsg: ChatMessage = {
             id: 'msg_ai_' + Date.now(),
@@ -451,6 +553,7 @@ export default function App() {
       createdAt: new Date().toISOString(),
     };
     setPayments((prev) => [newPayment, ...prev]);
+    dbSavePayment(newPayment).catch(console.error);
   };
 
   // Admin Actions
@@ -458,30 +561,52 @@ export default function App() {
     const p = payments.find((item) => item.id === paymentId);
     if (!p) return;
 
+    const updatedPayment: PaymentRequest = {
+      ...p,
+      status: 'approved',
+      verifiedAt: new Date().toISOString(),
+    };
+
     setPayments((prev) =>
       prev.map((item) =>
-        item.id === paymentId ? { ...item, status: 'approved', verifiedAt: new Date().toISOString() } : item
+        item.id === paymentId ? updatedPayment : item
       )
     );
+    dbSavePayment(updatedPayment).catch(console.error);
 
     // Credit target user or current user
     if (p.isProSubscription) {
-      setUser((prev) => ({
-        ...prev,
-        plan: 'pro',
-        credits: prev.credits + 15,
-      }));
+      setUser((prev) => {
+        const u = {
+          ...prev,
+          plan: 'pro' as const,
+          credits: prev.credits + 15,
+        };
+        dbSaveUser(u).catch(console.error);
+        return u;
+      });
     } else {
-      setUser((prev) => ({
-        ...prev,
-        credits: prev.credits + p.creditsRequested,
-      }));
+      setUser((prev) => {
+        const u = {
+          ...prev,
+          credits: prev.credits + p.creditsRequested,
+        };
+        dbSaveUser(u).catch(console.error);
+        return u;
+      });
     }
   };
 
   const handleRejectPayment = (paymentId: string) => {
     setPayments((prev) =>
-      prev.map((item) => (item.id === paymentId ? { ...item, status: 'rejected' } : item))
+      prev.map((item) => {
+        if (item.id === paymentId) {
+          const updated = { ...item, status: 'rejected' as const };
+          dbSavePayment(updated).catch(console.error);
+          return updated;
+        }
+        return item;
+      })
     );
   };
 
@@ -512,16 +637,19 @@ export default function App() {
 
   const handleReplyTicket = (ticketId: string, replyText: string) => {
     setTickets((prev) =>
-      prev.map((t) =>
-        t.id === ticketId
-          ? {
-              ...t,
-              status: 'resolved',
-              reply: replyText,
-              replyAt: new Date().toISOString(),
-            }
-          : t
-      )
+      prev.map((t) => {
+        if (t.id === ticketId) {
+          const updated = {
+            ...t,
+            status: 'resolved' as const,
+            reply: replyText,
+            replyAt: new Date().toISOString(),
+          };
+          dbSaveTicket(updated).catch(console.error);
+          return updated;
+        }
+        return t;
+      })
     );
   };
 
@@ -748,17 +876,16 @@ export default function App() {
         isOpen={isSupportOpen}
         onClose={() => setIsSupportOpen(false)}
         tickets={tickets}
-        onSubmitTicket={(ticket) =>
-          setTickets((prev) => [
-            {
-              ...ticket,
-              id: 'tick_' + Date.now(),
-              status: 'open',
-              createdAt: new Date().toISOString(),
-            },
-            ...prev,
-          ])
-        }
+        onSubmitTicket={(ticket) => {
+          const newTicket: SupportTicket = {
+            ...ticket,
+            id: 'tick_' + Date.now(),
+            status: 'open',
+            createdAt: new Date().toISOString(),
+          };
+          setTickets((prev) => [newTicket, ...prev]);
+          dbSaveTicket(newTicket).catch(console.error);
+        }}
       />
 
       <ReferralModal
