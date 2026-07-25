@@ -369,9 +369,9 @@ export const PreviewView: React.FC<PreviewViewProps> = ({
 
       {/* SUBTAB 1: Vu site web */}
       {subTab === 'web' && (
-        <div className="flex-1 bg-slate-950 p-2 sm:p-6 flex flex-col items-center justify-center overflow-auto relative">
+        <div className="flex-1 bg-slate-950 p-4 sm:p-6 flex flex-col items-center justify-center overflow-hidden relative">
           <div
-            className={`transition-all duration-300 h-full w-full bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-800 ${
+            className={`transition-all duration-300 h-full w-full max-h-full max-w-full bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-800 flex flex-col ${
               viewport === 'desktop'
                 ? 'max-w-full'
                 : viewport === 'tablet'
@@ -380,7 +380,7 @@ export const PreviewView: React.FC<PreviewViewProps> = ({
             }`}
           >
             {/* Browser Address Bar Mock */}
-            <div className="bg-slate-900 border-b border-slate-800 px-4 py-2 flex items-center justify-between text-xs text-slate-400">
+            <div className="bg-slate-900 border-b border-slate-800 px-4 py-2 flex items-center justify-between text-xs text-slate-400 shrink-0">
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-rose-500/80" />
                 <span className="w-3 h-3 rounded-full bg-amber-500/80" />
@@ -406,7 +406,7 @@ export const PreviewView: React.FC<PreviewViewProps> = ({
             <iframe
               srcDoc={getCombinedHtml()}
               title={project.title}
-              className="w-full h-[calc(100%-2.25rem)] border-0"
+              className="flex-1 w-full border-0"
               sandbox="allow-scripts allow-modals allow-forms allow-same-origin"
             />
           </div>
