@@ -1,11 +1,12 @@
 import express from 'express';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = path.resolve();
 
 const app = express();
 const PORT = 3000;
@@ -15,6 +16,52 @@ app.use(express.json({ limit: '10mb' }));
 // In-memory key rotation & persistent storage mock array
 let adminGeminiKeys: { id: string; key: string; name: string; isActive: boolean; usageCount: number; isQuotaExhausted?: boolean }[] = [];
 let currentKeyIndex = 0;
+
+let db: any = null;
+
+try {
+  const cfgPath = path.join(process.cwd(), 'firebase-applet-config.json');
+  if (fs.existsSync(cfgPath)) {
+    const fbCfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+    const firebaseConfig = {
+      apiKey: fbCfg.apiKey,
+      authDomain: fbCfg.authDomain,
+      projectId: fbCfg.projectId,
+      storageBucket: fbCfg.storageBucket,
+      messagingSenderId: fbCfg.messagingSenderId,
+      appId: fbCfg.appId,
+    };
+    const fbApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+    db = getFirestore(fbApp, fbCfg.firestoreDatabaseId || '(default)');
+    console.log('[DEVWEBIA] Backend Firebase DB initialized successfully.');
+  }
+} catch (e) {
+  console.warn('[DEVWEBIA] Could not initialize backend Firebase', e);
+}
+
+async function loadAdminKeysFromFirestore() {
+  if (!db) return;
+  try {
+    const docRef = doc(db, 'admin_config', 'gemini_keys');
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      if (Array.isArray(data.keys)) {
+        adminGeminiKeys = data.keys.map((k: any) => ({
+          id: k.id,
+          name: k.name,
+          key: k.key,
+          isActive: k.isActive !== false,
+          usageCount: k.usageCount || 0,
+          isQuotaExhausted: k.isQuotaExhausted || false
+        }));
+        console.log(`[DEVWEBIA] Loaded ${adminGeminiKeys.length} keys from Firestore.`);
+      }
+    }
+  } catch (err) {
+    console.warn('[DEVWEBIA] Error loading keys from Firestore:', err);
+  }
+}
 
 function getGeminiClient(): { ai: GoogleGenAI; keyName: string } {
   let apiKey = process.env.GEMINI_API_KEY;
@@ -44,6 +91,7 @@ function getGeminiClient(): { ai: GoogleGenAI; keyName: string } {
 }
 
 async function generateWebsiteWithKeys(fullPrompt: string, systemInstruction: string, responseSchema: any): Promise<any> {
+  await loadAdminKeysFromFirestore();
   const keysToTry: { id: string | null; key: string; name: string }[] = [];
 
   // 1. System Default Key first
@@ -178,6 +226,7 @@ async function generateWebsiteWithKeys(fullPrompt: string, systemInstruction: st
 }
 
 async function chatWithKeys(message: string, systemInstruction: string): Promise<any> {
+  await loadAdminKeysFromFirestore();
   const keysToTry: { id: string | null; key: string; name: string }[] = [];
 
   const defaultKey = process.env.GEMINI_API_KEY;
@@ -435,7 +484,6 @@ app.post('/api/generate-website', async (req, res) => {
 
     // Inject exact Firebase configuration for automatic client database integration
     try {
-      const fs = await import('fs');
       const cfgPath = path.join(process.cwd(), 'firebase-applet-config.json');
       if (fs.existsSync(cfgPath)) {
         const fbCfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
@@ -698,7 +746,7 @@ app.get('/api/admin/keys', (req, res) => {
   res.json({ keys: adminGeminiKeys });
 });
 
-app.post('/api/admin/keys/sync', (req, res) => {
+app.post('/api/admin/keys/sync', async (req, res) => {
   const { keys } = req.body;
   if (Array.isArray(keys)) {
     // Merge or replace keys safely
@@ -711,6 +759,16 @@ app.post('/api/admin/keys/sync', (req, res) => {
       isQuotaExhausted: k.isQuotaExhausted || false
     }));
     console.log(`[DEVWEBIA] Successfully synced ${adminGeminiKeys.length} Gemini API keys from client.`);
+
+    if (db) {
+      try {
+        const docRef = doc(db, 'admin_config', 'gemini_keys');
+        await setDoc(docRef, { keys: adminGeminiKeys }, { merge: true });
+        console.log('[DEVWEBIA] Synced keys saved to Firestore.');
+      } catch (err) {
+        console.warn('[DEVWEBIA] Error saving synced keys to Firestore:', err);
+      }
+    }
   }
   res.json({ success: true, keys: adminGeminiKeys });
 });
