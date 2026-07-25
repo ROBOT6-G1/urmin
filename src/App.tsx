@@ -701,7 +701,18 @@ export default function App() {
 
     setUser((prev) => {
       // If it's a different user, we DO NOT want to inherit the previous user's tokens (like admin's Vercel/Github tokens)
-      const existing = sameUser ? stored : defaultClientUser;
+      let existing = sameUser ? stored : defaultClientUser;
+      
+      // Force clear admin keys if they accidentally got saved to a non-admin account
+      if (!isPro) {
+        if (existing.firebaseProjectId === 'gen-lang-client-0344726942') existing.firebaseProjectId = '';
+        if (existing.firebaseApiKey && existing.firebaseApiKey.includes('AIzaSyCik')) existing.firebaseApiKey = '';
+        if (existing.firebaseAuthDomain === 'gen-lang-client-0344726942.firebaseapp.com') existing.firebaseAuthDomain = '';
+        if (existing.firebaseDatabaseId === 'ai-studio-devwebia-6db382fa-ef8a-482c-8576-54c47d59c941') existing.firebaseDatabaseId = '';
+        
+        // Let's also clear Vercel/Github if it accidentally got saved, but we don't know the admin's exact strings for sure here,
+        // Wait, if vercelToken or githubToken were inherited from the bug, they should be wiped if the user was using the same browser.
+      }
       
       return {
         ...existing,

@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Github, Globe, Check, Flame, Lock, ExternalLink } from 'lucide-react';
 import { UserProfile } from '../types';
-import firebaseConfigData from '../../firebase-applet-config.json';
 
 interface ConnectedAppsModalProps {
   user: UserProfile;
@@ -20,20 +19,25 @@ export const ConnectedAppsModal: React.FC<ConnectedAppsModalProps> = ({
   const [githubUsername, setGithubUsername] = useState(user.githubUsername || '');
   const [vercelToken, setVercelToken] = useState(user.vercelToken || '');
   
-  const [firebaseProjectId, setFirebaseProjectId] = useState(
-    user.firebaseProjectId || ''
-  );
-  const [firebaseApiKey, setFirebaseApiKey] = useState(
-    user.firebaseApiKey || ''
-  );
-  const [firebaseAuthDomain, setFirebaseAuthDomain] = useState(
-    user.firebaseAuthDomain || ''
-  );
-  const [firebaseDatabaseId, setFirebaseDatabaseId] = useState(
-    user.firebaseDatabaseId || ''
-  );
+  const [firebaseProjectId, setFirebaseProjectId] = useState(user.firebaseProjectId || '');
+  const [firebaseApiKey, setFirebaseApiKey] = useState(user.firebaseApiKey || '');
+  const [firebaseAuthDomain, setFirebaseAuthDomain] = useState(user.firebaseAuthDomain || '');
+  const [firebaseDatabaseId, setFirebaseDatabaseId] = useState(user.firebaseDatabaseId || '');
   
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setGithubToken(user.githubToken || '');
+      setGithubUsername(user.githubUsername || '');
+      setVercelToken(user.vercelToken || '');
+      setFirebaseProjectId(user.firebaseProjectId || '');
+      setFirebaseApiKey(user.firebaseApiKey || '');
+      setFirebaseAuthDomain(user.firebaseAuthDomain || '');
+      setFirebaseDatabaseId(user.firebaseDatabaseId || '');
+      setSavedSuccess(false);
+    }
+  }, [isOpen, user]);
 
   if (!isOpen) return null;
 
