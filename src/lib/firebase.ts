@@ -6,6 +6,9 @@ import {
   signOut,
   onAuthStateChanged,
   User as FirebaseUser,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile,
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
@@ -49,4 +52,10 @@ export const logoutFirebase = async () => {
   }
 };
 
-export { onAuthStateChanged, type FirebaseUser };
+export {
+  onAuthStateChanged,
+  type FirebaseUser,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile,
+};
