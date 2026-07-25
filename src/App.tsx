@@ -664,7 +664,7 @@ export default function App() {
     referralsCount: 2,
     githubConnected: false,
     vercelConnected: false,
-    firebaseConnected: true,
+    firebaseConnected: false,
     createdAt: new Date().toISOString(),
   };
 
@@ -700,7 +700,9 @@ export default function App() {
     const sameUser = stored && (stored.id === computedUserId || stored.email.toLowerCase() === email.toLowerCase());
 
     setUser((prev) => {
-      const existing = sameUser ? stored : prev;
+      // If it's a different user, we DO NOT want to inherit the previous user's tokens (like admin's Vercel/Github tokens)
+      const existing = sameUser ? stored : defaultClientUser;
+      
       return {
         ...existing,
         id: computedUserId,
@@ -711,12 +713,16 @@ export default function App() {
         storageUsedMb: existing.storageUsedMb || 120,
         referralCode: existing.referralCode || ('DEVWEB-' + Math.floor(1000 + Math.random() * 9000)),
         referralsCount: existing.referralsCount || (isPro ? 12 : 2),
-        githubConnected: Boolean(existing.githubToken || existing.githubUsername || existing.githubConnected || isPro),
-        githubToken: existing.githubToken,
-        githubUsername: existing.githubUsername,
-        vercelConnected: Boolean(existing.vercelToken || existing.vercelConnected || isPro),
-        vercelToken: existing.vercelToken,
-        firebaseConnected: true,
+        githubConnected: Boolean(existing.githubToken || existing.githubUsername || isPro),
+        githubToken: existing.githubToken || '',
+        githubUsername: existing.githubUsername || '',
+        vercelConnected: Boolean(existing.vercelToken || isPro),
+        vercelToken: existing.vercelToken || '',
+        firebaseConnected: Boolean(existing.firebaseProjectId && existing.firebaseApiKey),
+        firebaseProjectId: existing.firebaseProjectId || '',
+        firebaseApiKey: existing.firebaseApiKey || '',
+        firebaseAuthDomain: existing.firebaseAuthDomain || '',
+        firebaseDatabaseId: existing.firebaseDatabaseId || '',
         createdAt: existing.createdAt || new Date().toISOString(),
       };
     });

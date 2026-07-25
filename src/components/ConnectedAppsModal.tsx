@@ -21,16 +21,16 @@ export const ConnectedAppsModal: React.FC<ConnectedAppsModalProps> = ({
   const [vercelToken, setVercelToken] = useState(user.vercelToken || '');
   
   const [firebaseProjectId, setFirebaseProjectId] = useState(
-    user.firebaseProjectId || firebaseConfigData.projectId
+    user.firebaseProjectId || ''
   );
   const [firebaseApiKey, setFirebaseApiKey] = useState(
-    user.firebaseApiKey || firebaseConfigData.apiKey
+    user.firebaseApiKey || ''
   );
   const [firebaseAuthDomain, setFirebaseAuthDomain] = useState(
-    user.firebaseAuthDomain || firebaseConfigData.authDomain
+    user.firebaseAuthDomain || ''
   );
   const [firebaseDatabaseId, setFirebaseDatabaseId] = useState(
-    user.firebaseDatabaseId || firebaseConfigData.firestoreDatabaseId
+    user.firebaseDatabaseId || ''
   );
   
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -45,12 +45,12 @@ export const ConnectedAppsModal: React.FC<ConnectedAppsModalProps> = ({
       githubUsername,
       vercelConnected: Boolean(vercelToken),
       vercelToken,
-      firebaseConnected: true,
+      firebaseConnected: Boolean(firebaseProjectId && firebaseApiKey),
       firebaseProjectId,
       firebaseApiKey,
       firebaseAuthDomain,
       firebaseDatabaseId,
-      firebaseStorageBucket: firebaseConfigData.storageBucket,
+      firebaseStorageBucket: '',
     });
     setSavedSuccess(true);
     setTimeout(() => {
@@ -73,9 +73,9 @@ export const ConnectedAppsModal: React.FC<ConnectedAppsModalProps> = ({
           <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center mx-auto shadow-lg">
             <Flame className="w-6 h-6 text-amber-500 fill-amber-500/20" />
           </div>
-          <h2 className="text-2xl font-black text-white">Applications & Base de données</h2>
+          <h2 className="text-2xl font-black text-white">Vos Propres Intégrations</h2>
           <p className="text-slate-400 text-xs sm:text-sm">
-            DEVWEBIA dia mampiasa ny <strong>FIREBASE</strong> ho base de données lehibe sy fitahirizana ny informations secrets an'i client tsirairay.
+            Mba hanamaivanana ny projet, azafady ampidiro eto ny <strong>Firebase, Vercel, ary GitHub</strong> anao manokana ho an'ny tetikasanao (projets générés).
           </p>
         </div>
 
@@ -85,20 +85,24 @@ export const ConnectedAppsModal: React.FC<ConnectedAppsModalProps> = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 font-black text-white text-sm">
                 <Flame className="w-5 h-5 text-amber-500 fill-amber-500" />
-                <span>FIREBASE Database, Auth & Storage</span>
+                <span>FIREBASE Database & Auth (Manokana)</span>
               </div>
-              <span className="text-emerald-400 font-extrabold flex items-center gap-1 bg-emerald-950/80 px-2.5 py-1 rounded-full border border-emerald-500/30">
-                <Check className="w-3.5 h-3.5" /> Connecté Automatique
-              </span>
+              {user.firebaseConnected ? (
+                <span className="text-emerald-400 font-extrabold flex items-center gap-1 bg-emerald-950/80 px-2.5 py-1 rounded-full border border-emerald-500/30">
+                  <Check className="w-3.5 h-3.5" /> Connecté
+                </span>
+              ) : (
+                <span className="text-amber-400 font-bold bg-amber-950/80 px-2.5 py-1 rounded-full border border-amber-500/30">Non lié</span>
+              )}
             </div>
 
             <div className="p-3 bg-slate-900/90 rounded-xl border border-slate-800 space-y-2 text-[11px] text-slate-300">
               <div className="flex items-center gap-2 font-bold text-amber-300">
                 <Lock className="w-3.5 h-3.5" />
-                <span>Fitahirizana Secrets sy Aksé IA DEVWEBIA :</span>
+                <span>Ho an'ny tetikasanao irery ihany :</span>
               </div>
               <p className="leading-relaxed">
-                Ny IA DEVWEBIA dia efa manana accès feno amin'ny Firebase (Firestore, Auth, Storage) mba hamoronana tranonkala amin'ny base de données mivantana.
+                Ampidiro eto ny Firebase Configuration-nao manokana mba ho ao amin'ny kaontinao no hipetraka ny base de données an'ireo projet ho foroninao.
               </p>
             </div>
 
@@ -106,6 +110,7 @@ export const ConnectedAppsModal: React.FC<ConnectedAppsModalProps> = ({
               <label className="block text-slate-400 text-[11px] font-semibold">Firebase Project ID :</label>
               <input
                 type="text"
+                placeholder="ex: my-project-id"
                 value={firebaseProjectId}
                 onChange={(e) => setFirebaseProjectId(e.target.value)}
                 className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white outline-none focus:border-amber-500"
@@ -117,17 +122,19 @@ export const ConnectedAppsModal: React.FC<ConnectedAppsModalProps> = ({
                 <label className="block text-slate-400 text-[11px] font-semibold">API Key :</label>
                 <input
                   type="password"
+                  placeholder="AIzaSy... (Firebase API Key)"
                   value={firebaseApiKey}
                   onChange={(e) => setFirebaseApiKey(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white outline-none focus:border-amber-500"
                 />
               </div>
               <div>
-                <label className="block text-slate-400 text-[11px] font-semibold">Firestore Database ID :</label>
+                <label className="block text-slate-400 text-[11px] font-semibold">Auth Domain (Optionnel) :</label>
                 <input
                   type="text"
-                  value={firebaseDatabaseId}
-                  onChange={(e) => setFirebaseDatabaseId(e.target.value)}
+                  placeholder="ex: my-project.firebaseapp.com"
+                  value={firebaseAuthDomain}
+                  onChange={(e) => setFirebaseAuthDomain(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white outline-none focus:border-amber-500"
                 />
               </div>

@@ -582,7 +582,7 @@ app.post('/api/generate-website', async (req, res) => {
 app.post('/api/deploy/vercel', async (req, res) => {
   try {
     const { vercelToken, repoName, files } = req.body;
-    const tokenToUse = (vercelToken && vercelToken.trim()) ? vercelToken.trim() : (process.env.VERCEL_TOKEN || '');
+    const tokenToUse = (vercelToken && vercelToken.trim()) ? vercelToken.trim() : '';
 
     if (!tokenToUse) {
       return res.status(400).json({ error: 'Token Vercel manokana (vc_...) no ilaina. Ampidiro ao amin\'ny Apps Connectées ny Token-nao.' });

@@ -30,7 +30,7 @@ const DEFAULT_USER: UserProfile = {
   referralsCount: 2,
   githubConnected: false,
   vercelConnected: false,
-  firebaseConnected: true,
+  firebaseConnected: false,
   createdAt: new Date().toISOString(),
 };
 
