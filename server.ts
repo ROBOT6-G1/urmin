@@ -9,7 +9,7 @@ import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
 const __dirname = path.resolve();
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json({ limit: '10mb' }));
 
@@ -20,9 +20,19 @@ let currentKeyIndex = 0;
 let db: any = null;
 
 try {
+  let fbCfg: any = null;
   const cfgPath = path.join(process.cwd(), 'firebase-applet-config.json');
   if (fs.existsSync(cfgPath)) {
-    const fbCfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+    fbCfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+  } else if (process.env.FIREBASE_CONFIG) {
+    try {
+      fbCfg = JSON.parse(process.env.FIREBASE_CONFIG);
+    } catch (parseErr) {
+      console.warn('[DEVWEBIA] Failed to parse FIREBASE_CONFIG env var', parseErr);
+    }
+  }
+
+  if (fbCfg) {
     const firebaseConfig = {
       apiKey: fbCfg.apiKey,
       authDomain: fbCfg.authDomain,
@@ -484,9 +494,19 @@ app.post('/api/generate-website', async (req, res) => {
 
     // Inject exact Firebase configuration for automatic client database integration
     try {
+      let fbCfg: any = null;
       const cfgPath = path.join(process.cwd(), 'firebase-applet-config.json');
       if (fs.existsSync(cfgPath)) {
-        const fbCfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+        fbCfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      } else if (process.env.FIREBASE_CONFIG) {
+        try {
+          fbCfg = JSON.parse(process.env.FIREBASE_CONFIG);
+        } catch (pe) {
+          console.warn('[DEVWEBIA] Failed parse FIREBASE_CONFIG in generator endpoint', pe);
+        }
+      }
+
+      if (fbCfg) {
         userContext += `\n\n[CONFIGURATION FIREBASE CLIENT OBLIGATOIRE À EMBEDDED DANS LE SITE] :\n`;
         userContext += `const firebaseConfig = {\n`;
         userContext += `  apiKey: "${fbCfg.apiKey}",\n`;

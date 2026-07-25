@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: devwebia
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: GEMINI_API_KEY
+        sync: false
+        description: "Your Gemini API Key (keep it secure)"
+      - key: FIREBASE_CONFIG
+        sync: false
+        description: "Optional: Your Firebase JSON configuration string if firebase-applet-config.json is not committed"
