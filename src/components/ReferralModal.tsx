@@ -55,8 +55,11 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
   const loadReferredList = async () => {
     setIsLoadingList(true);
     try {
-      const records = await fetchReferredUsers(user.referralCode, user.referralsCount);
+      const records = await fetchReferredUsers(user.referralCode);
       setReferredList(records);
+      if (onUpdateUser && user.referralsCount !== records.length) {
+        onUpdateUser({ ...user, referralsCount: records.length });
+      }
     } catch (e) {
       console.error('Error loading referred list:', e);
     } finally {
@@ -99,6 +102,8 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
     if (name.length <= 2) return `${name}***@${domain}`;
     return `${name.substring(0, 2)}***${name.substring(name.length - 1)}@${domain}`;
   };
+
+  const realCount = referredList.length;
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
@@ -153,7 +158,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
             }`}
           >
             <Users className="w-3.5 h-3.5" />
-            <span>Filleuls ({user.referralsCount || referredList.length})</span>
+            <span>Filleuls ({realCount})</span>
           </button>
         </div>
 
@@ -165,13 +170,13 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
               <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 text-center">
                 <div className="text-xs text-slate-400 mb-1">Filleuls inscrits :</div>
                 <div className="text-2xl font-black text-white">
-                  {user.referralsCount || referredList.length}
+                  {realCount}
                 </div>
               </div>
               <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 text-center">
                 <div className="text-xs text-slate-400 mb-1">Crédits GAGNES :</div>
                 <div className="text-2xl font-black text-pink-400">
-                  +{(user.referralsCount || referredList.length) * 5} Crédits
+                  +{realCount * 5} Crédits
                 </div>
               </div>
             </div>
@@ -207,6 +212,19 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                 Code Parrain anao: <strong className="text-pink-400">{user.referralCode}</strong>
               </p>
             </div>
+
+            {/* Free plan monthly cap warning */}
+            {user.plan === 'free' && (
+              <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-xs text-amber-200 flex items-start gap-2.5">
+                <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <div className="font-bold text-amber-300">Limitation Plan Gratuit : 30 Crédits max par mois</div>
+                  <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                    Ny mpikambana Plan Gratuit dia mahazo <strong>maximum 30 Crédits par mois</strong> amin'ny parrainage (na fitambaran'ny crédit). Rehefa feno 30 amin'ity volana ity dia tsy mahazo crédit vaovao intsony. Mba hahazoana crédit illimité dia miakara amin'ny Plan PRO!
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="bg-pink-950/40 border border-pink-500/30 p-4 rounded-2xl text-xs text-pink-200 space-y-1.5">
               <div className="font-bold flex items-center gap-1.5 text-pink-300">

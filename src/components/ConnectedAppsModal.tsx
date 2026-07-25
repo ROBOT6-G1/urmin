@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Github, Globe, Check, Flame, Lock, ExternalLink } from 'lucide-react';
+import { X, Github, Globe, Check, Flame, Lock, ExternalLink, HelpCircle } from 'lucide-react';
 import { UserProfile } from '../types';
-import { auth } from '../lib/firebase';
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 
 interface ConnectedAppsModalProps {
   user: UserProfile;
@@ -27,10 +25,6 @@ export const ConnectedAppsModal: React.FC<ConnectedAppsModalProps> = ({
   const [firebaseDatabaseId, setFirebaseDatabaseId] = useState(user.firebaseDatabaseId || '');
   
   const [savedSuccess, setSavedSuccess] = useState(false);
-  
-  const [firebaseProjects, setFirebaseProjects] = useState<any[]>([]);
-  const [isFetchingFirebase, setIsFetchingFirebase] = useState(false);
-  const [firebaseError, setFirebaseError] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -46,78 +40,6 @@ export const ConnectedAppsModal: React.FC<ConnectedAppsModalProps> = ({
   }, [isOpen, user]);
 
   if (!isOpen) return null;
-
-  const handleConnectFirebaseGoogle = async () => {
-    setIsFetchingFirebase(true);
-    setFirebaseError('');
-    try {
-      const provider = new GoogleAuthProvider();
-      provider.addScope('https://www.googleapis.com/auth/cloud-platform');
-      
-      const result = await signInWithPopup(auth, provider);
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      const token = credential?.accessToken;
-      
-      if (!token) {
-        setFirebaseError('Tsy nahazo token avy amin\'ny Google.');
-        return;
-      }
-      
-      const res = await fetch('https://firebase.googleapis.com/v1beta1/projects', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      
-      if (data.results && data.results.length > 0) {
-        setFirebaseProjects(data.results.map((p: any) => ({ ...p, accessToken: token })));
-      } else {
-        setFirebaseError('Tsy manana projet Firebase ianao amin\'io compte Google io.');
-      }
-    } catch (err: any) {
-      console.error(err);
-      setFirebaseError(err.message || 'Nisy olana nandritra ny fidirana amin\'ny Google.');
-    } finally {
-      setIsFetchingFirebase(false);
-    }
-  };
-
-  const handleSelectFirebaseProject = async (project: any) => {
-    setIsFetchingFirebase(true);
-    setFirebaseError('');
-    try {
-      const token = project.accessToken;
-      
-      const appsRes = await fetch(`https://firebase.googleapis.com/v1beta1/projects/${project.projectId}/webApps`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const appsData = await appsRes.json();
-      
-      let appId = appsData.apps?.[0]?.appId;
-      
-      if (!appId) {
-         setFirebaseError(`Tsy misy Web App ao amin'ny projet ${project.projectId}. Mamorona iray ao amin'ny Firebase Console aloha.`);
-         setIsFetchingFirebase(false);
-         return;
-      }
-      
-      const configRes = await fetch(`https://firebase.googleapis.com/v1beta1/projects/${project.projectId}/webApps/${appId}/config`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const configData = await configRes.json();
-      
-      setFirebaseProjectId(configData.projectId || project.projectId);
-      setFirebaseApiKey(configData.apiKey);
-      setFirebaseAuthDomain(configData.authDomain || `${project.projectId}.firebaseapp.com`);
-      setFirebaseDatabaseId('(default)');
-      setFirebaseProjects([]);
-      setFirebaseError('');
-    } catch (err: any) {
-      console.error(err);
-      setFirebaseError('Nisy olana rehefa naka configuration: ' + err.message);
-    } finally {
-      setIsFetchingFirebase(false);
-    }
-  };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,55 +110,13 @@ export const ConnectedAppsModal: React.FC<ConnectedAppsModalProps> = ({
               </p>
             </div>
 
-            <div className="flex flex-col gap-2 mb-3">
-              <button 
-                type="button" 
-                onClick={handleConnectFirebaseGoogle}
-                disabled={isFetchingFirebase}
-                className="w-full flex items-center justify-center gap-2 py-2.5 px-3 bg-white hover:bg-slate-100 text-slate-900 font-bold rounded-xl transition-all border border-slate-200"
-              >
-                 <svg className="w-4 h-4" viewBox="0 0 24 24">
-                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                   <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                 </svg>
-                 {isFetchingFirebase ? 'Miandry kely...' : 'Connecter avec Google'}
-              </button>
-              
-              {firebaseError && (
-                <div className="text-rose-400 text-[10px] font-medium bg-rose-950/50 p-2.5 rounded-lg border border-rose-900/50">
-                  {firebaseError}
-                </div>
-              )}
-
-              {firebaseProjects.length > 0 && (
-                <div className="mt-2 p-3 bg-slate-900 rounded-xl border border-amber-500/30">
-                  <p className="text-[11px] font-bold text-amber-300 mb-2">Safidio ny Projet Firebase :</p>
-                  <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto custom-scrollbar pr-1">
-                    {firebaseProjects.map((p) => (
-                      <button
-                        key={p.projectId}
-                        type="button"
-                        onClick={() => handleSelectFirebaseProject(p)}
-                        className="text-left text-xs bg-slate-800 hover:bg-slate-700 px-3 py-2.5 rounded-lg text-white font-medium transition-all"
-                      >
-                        {p.displayName || p.projectId} <span className="text-slate-400 font-normal">({p.projectId})</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              <div className="relative flex py-2 items-center">
-                <div className="flex-grow border-t border-slate-800"></div>
-                <span className="flex-shrink mx-4 text-slate-500 text-[10px] font-bold uppercase tracking-wider">Na ampidiro manokana</span>
-                <div className="flex-grow border-t border-slate-800"></div>
-              </div>
-            </div>
-
             <div className="space-y-2">
-              <label className="block text-slate-400 text-[11px] font-semibold">Firebase Project ID :</label>
+              <label className="flex items-center gap-2 text-slate-400 text-[11px] font-semibold">
+                Firebase Project ID :
+                <a href="https://console.firebase.google.com/project/_/settings/general" target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:text-amber-400 flex items-center gap-0.5" title="Mankanesa any amin'ny Paramètres du projet ahitana ny Project ID">
+                  <HelpCircle className="w-3.5 h-3.5" /> Jereo eto
+                </a>
+              </label>
               <input
                 type="text"
                 placeholder="ex: my-project-id"
@@ -246,9 +126,14 @@ export const ConnectedAppsModal: React.FC<ConnectedAppsModalProps> = ({
               />
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-2">
-              <div>
-                <label className="block text-slate-400 text-[11px] font-semibold">API Key :</label>
+            <div className="grid sm:grid-cols-2 gap-2 mb-2">
+              <div className="space-y-1">
+                <label className="flex items-center gap-2 text-slate-400 text-[11px] font-semibold mb-1">
+                  API Key :
+                  <a href="https://console.firebase.google.com/project/_/settings/general" target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:text-amber-400 flex items-center gap-0.5" title="Mankanesa any amin'ny Paramètres du projet ao amin'ny fizarana Web App ahitana ny API Key">
+                    <HelpCircle className="w-3.5 h-3.5" /> Jereo eto
+                  </a>
+                </label>
                 <input
                   type="password"
                   placeholder="AIzaSy... (Firebase API Key)"
@@ -257,8 +142,13 @@ export const ConnectedAppsModal: React.FC<ConnectedAppsModalProps> = ({
                   className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white outline-none focus:border-amber-500"
                 />
               </div>
-              <div>
-                <label className="block text-slate-400 text-[11px] font-semibold">Auth Domain (Optionnel) :</label>
+              <div className="space-y-1">
+                <label className="flex items-center gap-2 text-slate-400 text-[11px] font-semibold mb-1">
+                  Auth Domain :
+                  <a href="https://console.firebase.google.com/project/_/authentication/providers" target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:text-amber-400 flex items-center gap-0.5" title="Ahitana azy ao amin'ny paramètre-n'ny Auth na Web App config">
+                    <HelpCircle className="w-3.5 h-3.5" /> Jereo eto
+                  </a>
+                </label>
                 <input
                   type="text"
                   placeholder="ex: my-project.firebaseapp.com"
@@ -267,6 +157,22 @@ export const ConnectedAppsModal: React.FC<ConnectedAppsModalProps> = ({
                   className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white outline-none focus:border-amber-500"
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-slate-400 text-[11px] font-semibold">
+                Database ID (Optionnel, matetika (default)) :
+                <a href="https://console.firebase.google.com/project/_/firestore" target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:text-amber-400 flex items-center gap-0.5" title="Ahitana azy ao amin'ny pejin'ny Firestore Database (matetika dia (default))">
+                  <HelpCircle className="w-3.5 h-3.5" /> Jereo eto
+                </a>
+              </label>
+              <input
+                type="text"
+                placeholder="ex: (default)"
+                value={firebaseDatabaseId}
+                onChange={(e) => setFirebaseDatabaseId(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white outline-none focus:border-amber-500"
+              />
             </div>
           </div>
 

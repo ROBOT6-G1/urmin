@@ -19,7 +19,9 @@ import { AuthModal } from './components/AuthModal';
 import { GuideModal } from './components/GuideModal';
 import { ProjectsHistoryModal } from './components/ProjectsHistoryModal';
 import { GoogleSeoModal } from './components/GoogleSeoModal';
-import { auth, onAuthStateChanged } from './lib/firebase';
+import { AboutModal } from './components/AboutModal';
+import { auth, onAuthStateChanged, db } from './lib/firebase';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 import {
   UserProfile,
@@ -102,6 +104,7 @@ export default function App() {
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isGoogleSeoOpen, setIsGoogleSeoOpen] = useState(false);
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
 
   // Admin Data state
   const [payments, setPayments] = useState<PaymentRequest[]>(getStoredPayments);
@@ -118,7 +121,19 @@ export default function App() {
     }).catch((err) => {
       console.warn('Error syncing keys with server:', err);
     });
-  }, [geminiKeys]);
+
+    if (user?.email === 'horlandobe@gmail.com') {
+      const syncToFirestore = async () => {
+        try {
+          const docRef = doc(db, 'admin_config', 'gemini_keys');
+          await setDoc(docRef, { keys: geminiKeys }, { merge: true });
+        } catch (err) {
+          console.warn('[DEVWEBIA] Error saving synced keys to Firestore from client:', err);
+        }
+      };
+      syncToFirestore();
+    }
+  }, [geminiKeys, user?.email]);
 
   // Sync Firebase Auth
   useEffect(() => {
@@ -438,10 +453,16 @@ export default function App() {
       const data = await res.json();
 
       if (data.success) {
-        // Deduct 1 credit
-        const newCredits = Math.max(0, user.credits - 1);
-        const updatedUser = { ...user, credits: newCredits };
-        setUser(updatedUser);
+        // Deduct 1 credit using functional state update and immediately persist
+        setUser((prev) => {
+          const newCredits = Math.max(0, prev.credits - 1);
+          const updated = { ...prev, credits: newCredits };
+          saveUser(updated);
+          if (updated.id && updated.id !== 'usr_client_default') {
+            dbSaveUser(updated).catch(console.error);
+          }
+          return updated;
+        });
 
         if (data.files && data.files.length > 0) {
           // Update Project files & intelligent site title
@@ -574,27 +595,27 @@ export default function App() {
     );
     dbSavePayment(updatedPayment).catch(console.error);
 
-    // Credit target user or current user
-    if (p.isProSubscription) {
-      setUser((prev) => {
-        const u = {
-          ...prev,
-          plan: 'pro' as const,
-          credits: prev.credits + 15,
-        };
-        dbSaveUser(u).catch(console.error);
-        return u;
-      });
-    } else {
-      setUser((prev) => {
-        const u = {
-          ...prev,
-          credits: prev.credits + p.creditsRequested,
-        };
-        dbSaveUser(u).catch(console.error);
-        return u;
-      });
-    }
+    // Credit target user
+    const userRef = doc(db, 'users', p.userId);
+    getDoc(userRef).then((docSnap) => {
+      if (docSnap.exists()) {
+        const targetUser = docSnap.data();
+        if (p.isProSubscription) {
+          setDoc(userRef, { plan: 'pro', credits: (targetUser.credits || 0) + 15 }, { merge: true }).catch(console.error);
+        } else {
+          setDoc(userRef, { credits: (targetUser.credits || 0) + p.creditsRequested }, { merge: true }).catch(console.error);
+        }
+        
+        // Also update local state if the admin is somehow approving their own payment
+        if (p.userId === user.id) {
+          setUser((prev) => ({
+            ...prev,
+            plan: p.isProSubscription ? 'pro' : prev.plan,
+            credits: prev.credits + (p.isProSubscription ? 15 : p.creditsRequested)
+          }));
+        }
+      }
+    }).catch(console.error);
   };
 
   const handleRejectPayment = (paymentId: string) => {
@@ -611,11 +632,29 @@ export default function App() {
   };
 
   const handleUpdateUserCredits = (userId: string, newCredits: number) => {
-    setUser((prev) => ({ ...prev, credits: newCredits }));
+    const userRef = doc(db, 'users', userId);
+    setDoc(userRef, { credits: newCredits }, { merge: true }).catch(console.error);
+    
+    // Update local if it's the admin themselves
+    if (userId === user.id) {
+      setUser((prev) => ({ ...prev, credits: newCredits }));
+    }
   };
 
   const handleToggleUserPlan = (userId: string) => {
-    setUser((prev) => ({ ...prev, plan: prev.plan === 'pro' ? 'free' : 'pro' }));
+    const userRef = doc(db, 'users', userId);
+    getDoc(userRef).then((docSnap) => {
+      if (docSnap.exists()) {
+        const u = docSnap.data();
+        const newPlan = u.plan === 'pro' ? 'free' : 'pro';
+        setDoc(userRef, { plan: newPlan }, { merge: true }).catch(console.error);
+        
+        // Update local if it's the admin themselves
+        if (userId === user.id) {
+          setUser((prev) => ({ ...prev, plan: newPlan }));
+        }
+      }
+    }).catch(console.error);
   };
 
   const handleAddGeminiKey = (name: string, key: string) => {
@@ -661,7 +700,7 @@ export default function App() {
     credits: 5, // 5 credits bonus ho an'ny membre vaovao
     storageUsedMb: 120,
     referralCode: 'DEVWEB-8921',
-    referralsCount: 2,
+    referralsCount: 0,
     githubConnected: false,
     vercelConnected: false,
     firebaseConnected: false,
@@ -676,7 +715,7 @@ export default function App() {
     credits: 999,
     storageUsedMb: 50,
     referralCode: 'DEVWEB-0001',
-    referralsCount: 50,
+    referralsCount: 0,
     githubConnected: true,
     vercelConnected: true,
     firebaseConnected: true,
@@ -719,11 +758,11 @@ export default function App() {
         id: computedUserId,
         email,
         name: name || existing.name || (isPro ? 'Admin Horlando' : 'Utilisateur DEVWEBIA'),
-        plan: isPro ? 'pro' : (existing.plan || 'free'),
-        credits: isPro ? 999 : (existing.credits || 15),
+        plan: isPro ? 'pro' : (sameUser && stored.plan ? stored.plan : 'free'),
+        credits: isPro ? 999 : (sameUser && stored.credits !== undefined ? stored.credits : 5),
         storageUsedMb: existing.storageUsedMb || 120,
         referralCode: existing.referralCode || ('DEVWEB-' + Math.floor(1000 + Math.random() * 9000)),
-        referralsCount: existing.referralsCount || (isPro ? 12 : 2),
+        referralsCount: existing.referralsCount !== undefined ? existing.referralsCount : 0,
         githubConnected: Boolean(existing.githubToken || existing.githubUsername || isPro),
         githubToken: existing.githubToken || '',
         githubUsername: existing.githubUsername || '',
@@ -807,6 +846,7 @@ export default function App() {
           onOpenDomain={() => setIsDomainOpen(true)}
           onOpenGoogleSeo={() => setIsGoogleSeoOpen(true)}
           onOpenAdmin={() => setIsAdminOpen(true)}
+          onOpenAbout={() => setIsAboutOpen(true)}
           onLogout={() => setIsAuthOpen(true)}
           onDuplicateProject={handleDuplicateProject}
           onDeleteProject={handleDeleteProject}
@@ -863,8 +903,10 @@ export default function App() {
 
       <CustomDomainModal
         user={user}
+        projects={userProjects}
         isOpen={isDomainOpen}
         onClose={() => setIsDomainOpen(false)}
+        onUpdateUser={(updated) => setUser((prev) => ({ ...prev, ...updated }))}
         onSendDomainToChat={(domainPrompt) => {
           setActiveTab('chat');
           handleSendMessage(domainPrompt);
@@ -913,6 +955,8 @@ export default function App() {
       />
 
       <FaqModal isOpen={isFaqOpen} onClose={() => setIsFaqOpen(false)} />
+
+      <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
 
       <AdminPanelModal
         user={user}

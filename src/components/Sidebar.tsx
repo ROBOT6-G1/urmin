@@ -21,6 +21,7 @@ import {
   Sparkles,
   ExternalLink,
   Rocket,
+  Info,
 } from 'lucide-react';
 import { Project, UserProfile } from '../types';
 
@@ -40,6 +41,7 @@ interface SidebarProps {
   onOpenDomain: () => void;
   onOpenGoogleSeo: () => void;
   onOpenAdmin: () => void;
+  onOpenAbout?: () => void;
   onLogout: () => void;
   onDuplicateProject?: (projectId: string) => void;
   onDeleteProject?: (projectId: string) => void;
@@ -64,6 +66,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenDomain,
   onOpenGoogleSeo,
   onOpenAdmin,
+  onOpenAbout,
   onLogout,
   onDuplicateProject,
   onDeleteProject,
@@ -382,6 +385,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span className="text-[10px] bg-indigo-500/20 text-indigo-300 font-bold px-2 py-0.5 rounded-full">
                 Vercel
               </span>
+            </button>
+
+            {/* 👉 Apropos de nous */}
+            <button
+              onClick={() => {
+                if (onOpenAbout) onOpenAbout();
+                onClose();
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent hover:border-slate-700 transition-all"
+            >
+              <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400">
+                <Info className="w-4 h-4" />
+              </div>
+              <span>Apropos de nous</span>
             </button>
 
             {/* Admin Management if admin email */}

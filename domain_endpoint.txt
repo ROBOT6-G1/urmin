@@ -1,0 +1,49 @@
+
+// Real Vercel Custom Domain Endpoint
+app.post('/api/deploy/vercel/domain', async (req, res) => {
+  try {
+    const { vercelToken, repoName, domain } = req.body;
+    
+    const tokenToUse = (vercelToken && vercelToken.trim()) ? vercelToken.trim() : '';
+
+    if (!tokenToUse) {
+      return res.status(400).json({ error: 'Token Vercel manokana no ilaina.' });
+    }
+
+    if (!domain) {
+      return res.status(400).json({ error: 'Domaine no ilaina.' });
+    }
+
+    const cleanProjectName = (repoName || 'my-site')
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    // 1. Add domain to Vercel project
+    const vercelRes = await fetch(`https://api.vercel.com/v10/projects/${cleanProjectName}/domains`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${tokenToUse}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: domain }),
+    });
+
+    const data = await vercelRes.json();
+
+    if (!vercelRes.ok) {
+      const msg = data.error?.message || data.message || 'Misy diso ny fampidirana domaine.';
+      return res.status(vercelRes.status).json({ error: msg, details: data });
+    }
+
+    return res.json({
+      success: true,
+      domain: data.name,
+    });
+  } catch (err: any) {
+    console.error('Vercel domain error:', err);
+    return res.status(500).json({ error: 'Erreur Vercel domain: ' + (err.message || String(err)) });
+  }
+});
+

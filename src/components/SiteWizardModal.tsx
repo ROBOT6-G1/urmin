@@ -98,18 +98,19 @@ export const SiteWizardModal: React.FC<SiteWizardModalProps> = ({
   const handleBuildPrompt = () => {
     if (!selectedCategory) return;
 
-    let prompt = `MAMORONA TRANONKALA MATITRA SY COMPLET "${selectedCategory.name.toUpperCase()}" (MODÈLE SPECIFIQUE: ${selectedCategory.id})
+    let prompt = `MAMORONA TRANONKALA MATIHANINA SY COMPLET "${selectedCategory.name.toUpperCase()}" (MODÈLE SPÉCIFIQUE: ${selectedCategory.id})
 
 Aza adino ireto toromarika LEHIBE SY TSY AZO ATVOHOKA ireto:
 1. EXÉCUTION DE TOUTES LES 10 OPTIONS : Tu dois OBLIGATOIREMENT créer du code complet pour CHACUNE des 10 options ci-dessous sans en sauter aucune.
-2. DESIGN UNIQUE ET MODÈLE SPÉCIFIQUE : Utilise la charte graphique, les composants interactifs et les layouts dédiés à ce secteur (${selectedCategory.name}). Ne fais pas un design générique !
-3. ARCHITECTURE MULTI-FICHIERS SÉPARÉE (Génère 15 à 20 fichiers bien organisés) :
+2. SARY PAR DÉFAUT SY IMAGES FONCTIONNELLES : Utilise UNIQUEMENT de vraies URLs Unsplash HD (https://images.unsplash.com/photo-...) et ajoute l'attribut onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=800&q=80';" sur CHAQUE balise <img>. Interdiction d'utiliser des chemins relatifs comme 'images/hero.jpg'.
+3. DESIGN UNIQUE ET MODÈLE SPÉCIFIQUE : Utilise la charte graphique, les composants interactifs et les layouts dédiés à ce secteur (${selectedCategory.name}). Ne fais pas un design générique !
+4. ARCHITECTURE MULTI-FICHIERS SÉPARÉE (Génère 15 à 20 fichiers bien organisés) :
    - Fichiers HTML séparés : index.html, apropos.html, services.html, realisations.html, faq.html, blog.html, contact.html, admin.html, etc.
    - Fichiers JS séparés : app.js, admin.js, firebase-config.js.
    - Fichier CSS dédié : style.css.
-4. ESPACE ADMIN SÉCURISÉ & SYNC FIRESTORE EN DIRECT (admin.html + admin.js) :
+5. ESPACE ADMIN SÉCURISÉ & SYNC FIRESTORE EN DIRECT (admin.html + admin.js) :
    - Mot de passe admin par défaut "1234" (modifiable dans l'admin).
-   - Formulaires d'édition pour TOUTES les 10 options.
+   - Formulaires d'édition pour TOUTES les 10 options et leurs URLs d'images.
    - Uploader de fichiers image avec compresseur HTML5 Canvas (<150KB) et aperçu miniature.
    - Gestionnaire de liste de produits / services / éléments.
    - Boîte de réception des messages et réservations.

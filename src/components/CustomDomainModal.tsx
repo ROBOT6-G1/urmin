@@ -1,37 +1,78 @@
 import React, { useState } from 'react';
-import { X, Globe, Copy, Check, Send, Sparkles, AlertCircle } from 'lucide-react';
-import { UserProfile } from '../types';
+import { X, Globe, Copy, Check, Send, Sparkles, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
+import { UserProfile, Project } from '../types';
 
 interface CustomDomainModalProps {
   user: UserProfile;
+  projects: Project[];
   isOpen: boolean;
   onClose: () => void;
+  onUpdateUser?: (updated: Partial<UserProfile>) => void;
   onSendDomainToChat: (domainPrompt: string) => void;
 }
 
 export const CustomDomainModal: React.FC<CustomDomainModalProps> = ({
   user,
+  projects,
   isOpen,
   onClose,
+  onUpdateUser,
   onSendDomainToChat,
 }) => {
   const [domainInput, setDomainInput] = useState(user.customDomain || '');
-  const [copiedRecord, setCopiedRecord] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(projects[0]?.id || '');
+  const [isDeploying, setIsDeploying] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   if (!isOpen) return null;
 
-  const handleApplyDomain = (e: React.FormEvent) => {
+  const handleApplyDomain = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!domainInput.trim()) return;
 
-    const promptText = `C'est parti ! Je veux connecter mon nom de domaine personnalisé "${domainInput.trim()}" à mon projet Vercel. 
-Voici les enregistrements DNS requis :
-- Type A (@) -> 76.76.21.21
-- Type CNAME (www) -> cname.vercel-dns.com
-Merci d'appliquer la configuration et d'adapter le site pour ce domaine.`;
+    if (!user.vercelToken) {
+      setErrorMsg("Mila Token Vercel ianao ahafahana mampifandray domaine mivantana. Ampidiro ao amin'ny 'Apps Connectées' izany aloha.");
+      return;
+    }
 
-    onSendDomainToChat(promptText);
-    onClose();
+    if (!selectedProjectId) {
+      setErrorMsg("Misafidiana projet iray azafady.");
+      return;
+    }
+
+    const proj = projects.find((p) => p.id === selectedProjectId);
+    if (!proj) return;
+
+    setIsDeploying(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    try {
+      const res = await fetch('/api/deploy/vercel/domain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vercelToken: user.vercelToken,
+          repoName: proj.title,
+          domain: domainInput.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Nisy olana ny fampidirana ny domaine.');
+      }
+
+      setSuccessMsg(`Tafiditra soa aman-tsara amin'ny projet Vercel-nao ny domaine ${data.domain} !`);
+      if (onUpdateUser) {
+        onUpdateUser({ customDomain: data.domain });
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    } finally {
+      setIsDeploying(false);
+    }
   };
 
   return (
@@ -69,6 +110,21 @@ Merci d'appliquer la configuration et d'adapter le site pour ce domaine.`;
         <form onSubmit={handleApplyDomain} className="space-y-4 text-xs">
           <div>
             <label className="block text-slate-300 font-bold mb-1">
+              Safidio ny Projet hasiana ilay Domaine :
+            </label>
+            <select
+              value={selectedProjectId}
+              onChange={(e) => setSelectedProjectId(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white font-medium outline-none focus:border-teal-500 text-xs mb-3"
+            >
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.title} ({p.files?.length || 1} fichiers)
+                </option>
+              ))}
+            </select>
+            
+            <label className="block text-slate-300 font-bold mb-1">
               Soraty ny Nom de domaine-nao :
             </label>
             <input
@@ -98,13 +154,47 @@ Merci d'appliquer la configuration et d'adapter le site pour ce domaine.`;
             </div>
           </div>
 
-          <button
-            type="submit"
-            className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-extrabold text-sm shadow-xl shadow-teal-600/20 transition-all flex items-center justify-center gap-2"
-          >
-            <Send className="w-4 h-4" />
-            <span>Alefa amin'i Chat IA Hanaovana Configuration</span>
-          </button>
+          {errorMsg && (
+            <div className="p-3 bg-rose-950/80 border border-rose-500/50 rounded-xl text-rose-200 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {successMsg && (
+            <div className="p-4 bg-emerald-950/60 border border-emerald-500/40 rounded-xl text-emerald-200 flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-400" />
+              <span>{successMsg}</span>
+            </div>
+          )}
+
+          {!successMsg && (
+            <button
+              type="submit"
+              disabled={isDeploying}
+              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-extrabold text-sm shadow-xl shadow-teal-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isDeploying ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+              <span>{isDeploying ? 'Ampifandraisina...' : 'Ampifandraiso mivantana'}</span>
+            </button>
+          )}
+          
+          {successMsg && (
+            <div className="pt-2 text-center">
+              <p className="text-slate-400 text-[11px] mb-3">Tsarovy fa mila manamboatra ny <strong>Zone DNS</strong> any amin'ny mpivarotra domaine (ni-vidiananao azy) ianao amin'ireo fampahalalana (A na CNAME) aseho eo ambony.</p>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-6 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-colors"
+              >
+                Akatona
+              </button>
+            </div>
+          )}
         </form>
       </div>
     </div>

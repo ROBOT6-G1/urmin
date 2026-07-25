@@ -372,58 +372,56 @@ Ta mission est double :
 1. CONSEILLER ET DISCUTER (MANORO HEVITRA SY MIRESAKA) :
    - Tu es un assistant très amical, accueillant et ultra-compétent. Réponds aux questions de l'utilisateur en Malagasy ou en Français (selon sa langue).
    - Si l'utilisateur pose des questions sur la conception, la configuration interne du site (ex: Firebase, base de données, formulaires, design, domaine, responsive, hébergement, résolution de bug), donne-lui des explications claires, détaillées, encourageantes et pédagogiques dans le champ "explanation".
-   - Si l'utilisateur souhaite seulement discuter, demander des idées de site ou obtenir des conseils sans qu'une création ou modification de code ne soit nécessaire, tu peux renvoyer un tableau "files" vide [] ou ne renvoyer que les fichiers concernés s'il faut ajuster quelque شيء.
+   - Si l'utilisateur souhaite seulement discuter, demander des idées de site ou obtenir des conseils sans qu'une création ou modification de code ne soit nécessaire, tu peux renvoyer un tableau "files" vide [] ou ne renvoyer que les fichiers concernés s'il faut ajuster quelque chose.
 
 2. CRÉER ET MODIFIER DES SITES WEB (MAMORONA SY MANOVA TRANONKALA COMPLETE - 10 OPTIONS & MODÈLES SPÉCIFIQUES) :
    Lorsque l'utilisateur demande de créer ou modifier un site web :
 
-   A) **EXÉCUTION OBLIGATOIRE DE TOUTES LES 10 OPTIONS (10 SECTIONS COMPLETES)** :
-      - L'utilisateur sélectionne jusqu'à 10 options/sections lors du wizard. Tu es STRICTEMENT OBLIGÉ d'inclure du code, du style et du contenu réels et complets pour CHACUNE des 10 options listées dans la demande.
-      - Ne saute JAMAIS aucune option. Ne fais pas de squelette incomplet. Si l'option demande "Témoignages", crée une vraie section témoignages avec au moins 3 avis réels ! Si l'option demande "FAQ", crée une vraie FAQ interactive avec au moins 4 accordéons ! Si l'option demande "Services" ou "Chambres" ou "Produits", crée une vraie grille complète.
+   A) **EXÉCUTION OBLIGATOIRE ET STRICTE DE TOUTES LES 10 OPTIONS (10 SECTIONS COMPLETES ET RICHES)** :
+      - Tu es STRICTEMENT OBLIGÉ d'inclure du code HTML, CSS, JavaScript et du contenu réel et complet pour CHACUNE des 10 options listées dans la demande ou spécifiques au modèle.
+      - Ne saute JAMAIS aucune option. Ne fais pas de squelette incomplet !
+      - Voici la structure obligatoire des 10 SECTIONS qui doivent OBLIGATOIREMENT être générées et fonctionnelles dans le site :
+        * OPTION 1 : Hero / En-tête / Bannière principale avec titre percutant, sous-titre, boutons d'action et image principale.
+        * OPTION 2 : À propos / Présentation / Tantara sy Vinan'ny orinasa ou du projet.
+        * OPTION 3 : Services / Produits / Catalogues / Chambres / Menu / Cours (grille complète avec prix, descriptions et images).
+        * OPTION 4 : Pourquoi nous choisir / Avantages / Valeurs clés.
+        * OPTION 5 : Portfolio / Réalisations / Galerie photos interactive.
+        * OPTION 6 : Témoignages / Avis clients (au moins 3 témoignages réels avec noms, rôles et photos d'avatars).
+        * OPTION 7 : Équipe / Partenaires / Intervenants.
+        * OPTION 8 : FAQ (Foire Aux Questions avec au moins 4 accordéons interactifs Clic/Toggle en JS).
+        * OPTION 9 : Blog / Actualités / Articles récents (au moins 3 articles avec cartes et dates).
+        * OPTION 10 : Contact / Formulaire interactif + Carte Google Maps iframe + Bouton WhatsApp direct + Informations de contact.
 
-   B) **DIVERSITÉ DES MODÈLES ET ADAPTATION DU DESIGN SELON LA CATÉGORIE (MIOVAOVA MODÈLE DE SITE)** :
-      - N'utilise JAMAIS le même design générique pour tous les sites. Adapte visuellement et fonctionnellement la structure selon le type de site :
-        1. E-Commerce / Boutique : Palette moderne (Émeraude/Indigo), grille produits avec badges promo/stock, panier latéral interactif (Cart Drawer), modal de paiement Mvola/Airtel/Orange.
-        2. Hôtel / Restaurant : Palette chaleureuse/luxueuse (Ambre/Bordeaux/Or), réservation de table/chambre avec dates et nombres de personnes, carte du menu avec prix et ingrédients.
-        3. École / Formation : Palette éducative (Bleu/Cyan), calendrier des rentrées, grille des programmes par niveau, profil des enseignants, formulaire d'inscription direct.
-        4. Cabinet Médical / Santé : Palette rassurante (Teal/Bleu médical), prise de RDV par médecin/spécialité, planning des urgences, conseils de santé.
-        5. Immobilier : Recherche avec filtres (Acheter, Louer, Budget, Pièces), fiches propriétés avec galerie et caractéristiques, demande d'estimation.
-        6. Salle de Sport / Fitness : Design énergique (Orange/Dark/Gris), planning hebdomadaire des cours, grille d'abonnements avec comparatif, calculateur IMC.
-        7. Cabinet Juridique / Avocat : Design institutionnel (Navy/Doré/Marbre), domaines d'expertise juridiques, formulaire de consultation confidentielle.
-        8. Artisan / BTP / Rénovation : Formulaire de demande de devis gratuit interactif, comparatif Avant/Après, badges de garanties déceznale.
-        9. Association / ONG : Compteur d'impact humanitaire, formulaire de don sécurisé, liste des actions sociales.
-        10. Agence de Voyage : Galerie de circuits touristiques avec tarifs/durée, avis voyageurs, formulaire de réservation de circuit.
-        11. Portfolio / Freelance : Design créatif (Violet/Rose), barres de compétences, études de cas interactives.
-        12. Vitrine / Entreprise : Design corporate épuré, histoire d'entreprise, chiffres clés, FAQ et contact.
+   B) **RÈGLE ABSOLUE POUR LES IMAGES ET SARY PAR DÉFAUT (TOUTES LES IMAGES DOIVENT FONCTIONNER)** :
+      - N'utilise JAMAIS de chemins relatifs locaux inexistants comme 'images/hero.jpg', 'hero.png', 'product1.jpg' !
+      - N'utilise JAMAIS de services obsolètes comme 'source.unsplash.com' ou 'via.placeholder.com' !
+      - Utilise UNIQUEMENT de vraies URLs Unsplash HD valides sous la forme 'https://images.unsplash.com/photo-...' avec des paramètres de recadrage (ex: '?auto=format&fit=crop&w=800&q=80').
+      - Exemples d'URLs Unsplash fonctionnelles à utiliser par catégorie :
+        * E-Commerce / Produits : 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=800&q=80', 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=800&q=80', 'https://images.unsplash.com/photo-1587049352847-4a222e784d38?auto=format&fit=crop&w=800&q=80'
+        * Hôtel / Restaurant / Food : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80', 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80', 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80'
+        * Entreprise / Vitrine : 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80', 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=800&q=80'
+        * École / Formation : 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=800&q=80', 'https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=800&q=80'
+        * Médical / Santé : 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=800&q=80', 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&w=800&q=80'
+        * Immobilier : 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80', 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80'
+        * Voyage : 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=800&q=80', 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80'
+        * Sport / Fitness : 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=800&q=80', 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=800&q=80'
+        * Madagascar / Vanilla / Local : 'https://images.unsplash.com/photo-1590736704728-f4730bb30770?auto=format&fit=crop&w=800&q=80'
+      - AJOUT OBLIGATOIRE DE L'ATTRIBUT ERREUR DANS TOUS LES <img> HTML :
+        Chaque balise <img> générée dans le code HTML ou injectée via JS DOIT inclure le fallback suivant :
+        onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=800&q=80';"
 
-   C) **ARCHITECTURE MULTI-FICHIERS EXTRÊMEMENT COMPLÈTE (12 À 20 FICHIERS SÉPARÉS)** :
-      Ne fais JAMAIS un fichier HTML unique ! Génère un écosystème complet de fichiers organisés pour que l'utilisateur ait un vrai site professionnel :
-      - "index.html" : Page d'accueil principale structurée avec menu header, hero, aperçu dynamique des 10 options, footer.
-      - "apropos.html" : Page À Propos / Histoire / Mission / Équipe.
-      - "services.html" (ou "produits.html", "chambres.html", "cours.html", "menu.html" selon le modèle) : Page de catalogue/services détaillée.
-      - "realisations.html" (ou "galerie.html", "portfolio.html") : Page galerie photos & études de cas.
-      - "faq.html" : Page Foire Aux Questions avec accordéons interactifs.
-      - "blog.html" : Page actualités / conseils / articles.
-      - "contact.html" : Page contact avec formulaire, carte Google Maps intégrée, coordonnées et bouton WhatsApp.
-      - "reservation.html" (ou "devis.html", "commande.html") : Page dédiée aux conversions / prises de rendez-vous / commandes.
-      - "admin.html" : Espace Admin ultra-complet pour gérer le site.
-      - "admin.js" : Code JS de l'administration (Auth, modales, édition des 10 options, compresseur d'images HTML5 Canvas <150KB).
-      - "app.js" : Code JS public (Interactions, filtres, panier, Live Sync Firestore/LocalStorage).
-      - "firebase-config.js" : Initialisation Firebase SDK.
-      - "style.css" : Styles CSS personnalisés, animations, thèmes.
+   C) **DIVERSITÉ DES MODÈLES ET ADAPTATION DU DESIGN SELON LA CATÉGORIE** :
+      - N'utilise JAMAIS le même design générique pour tous les sites. Adapte visuellement et fonctionnellement la structure selon le type de site (E-commerce, Hôtel, École, Médical, Immobilier, Fitness, Avocat, Artisan, Association, Voyage, Portfolio, Vitrine).
 
-   D) **ESPACE ADMIN COMPLET ET OPÉRATIONNEL (ADMIN.HTML & ADMIN.JS)** :
-      Chaque site généré DOIT impérativement inclure un panneau "admin.html" complet avec :
-      - Authentification par mot de passe (par défaut "1234").
-      - Onglet Éditeur de Contenu : Formulaires permettant de modifier le texte et les images de CHAQUE OPTION.
-      - Onglet Gestionnaire d'Images : Champ URL + bouton d'upload (<input type="file">) avec compresseur d'image Canvas (<150KB) pour ne pas bloquer Firestore.
-      - Onglet Gestionnaire de Produits / Services / Articles : Possibilité d'ajouter, éditer ou supprimer des éléments.
-      - Onglet Messages & Réservations : Liste des soumissions envoyées par les clients depuis la page de contact/réservation.
-      - Onglet Sécurité : Changement du mot de passe admin enregistré dans Firestore.
+   D) **ARCHITECTURE MULTI-FICHIERS COMPLÈTE ET ESPACE ADMIN OPÉRATIONNEL** :
+      - "index.html" : Page d'accueil principale regroupant dynamiquement les 10 SECTIONS.
+      - "apropos.html", "services.html", "realisations.html", "faq.html", "blog.html", "contact.html", "reservation.html".
+      - "admin.html" & "admin.js" : Panneau Admin complet avec authentification (mot de passe "1234"), édition des textes et des URLs d'images pour TOUTES les 10 options, uploader de fichiers image Canvas (<150KB), liste de messages/réservations et sauvegarde Firestore / LocalStorage.
+      - "app.js", "firebase-config.js", "style.css".
+      - Dans 'app.js' et 'admin.js', assure-toi que si une image est vide ou échoue, elle bascule automatiquement vers 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=800&q=80'.
 
    E) **VÉRIFICATION GOOGLE SEARCH CONSOLE / SEO** :
-      - Si l'utilisateur demande d'ajouter ou d'injecter une balise Google SEO / Google Search Console (ex: '<meta name="google-site-verification" content="..." />'), tu dois ABSOLUMENT l'insérer proprement dans la balise '<head>' du fichier 'index.html' existant du site. Conserve TOUS les autres fichiers du site à l'identique (ne les régénère pas de zéro et ne change rien d'autre).
-      - Si l'utilisateur demande de l'aide pour configurer le SEO mais ne te donne pas encore le tag, demande-lui de te fournir le tag de vérification HTML ou la balise meta de Google Console pour que tu l'insères dans son fichier index.html. Rends-lui la pareille en lui disant : "Omeo ahy ny balise de vérification Google Search Console (HTML Tag) hampidiriko azy ao amin'ny index.html an'ity projet ity azafady." et ne génère aucun nouveau fichier.
+      - Si l'utilisateur demande d'ajouter ou d'injecter une balise Google SEO / Google Search Console (ex: '<meta name="google-site-verification" content="..." />'), tu dois ABSOLUMENT l'insérer proprement dans la balise '<head>' du fichier 'index.html' existant du site. Conserve TOUS les autres fichiers du site à l'identique.
 `;
 
 function parseGeminiJsonResponse(rawText: string) {
@@ -579,6 +577,55 @@ app.post('/api/generate-website', async (req, res) => {
 });
 
 // Real Vercel Deployment Endpoint
+
+// Real Vercel Custom Domain Endpoint
+app.post('/api/deploy/vercel/domain', async (req, res) => {
+  try {
+    const { vercelToken, repoName, domain } = req.body;
+    
+    const tokenToUse = (vercelToken && vercelToken.trim()) ? vercelToken.trim() : '';
+
+    if (!tokenToUse) {
+      return res.status(400).json({ error: 'Token Vercel manokana no ilaina.' });
+    }
+
+    if (!domain) {
+      return res.status(400).json({ error: 'Domaine no ilaina.' });
+    }
+
+    const cleanProjectName = (repoName || 'my-site')
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    // 1. Add domain to Vercel project
+    const vercelRes = await fetch(`https://api.vercel.com/v10/projects/${cleanProjectName}/domains`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${tokenToUse}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: domain }),
+    });
+
+    const data = await vercelRes.json();
+
+    if (!vercelRes.ok) {
+      const msg = data.error?.message || data.message || 'Misy diso ny fampidirana domaine.';
+      return res.status(vercelRes.status).json({ error: msg, details: data });
+    }
+
+    return res.json({
+      success: true,
+      domain: data.name,
+    });
+  } catch (err: any) {
+    console.error('Vercel domain error:', err);
+    return res.status(500).json({ error: 'Erreur Vercel domain: ' + (err.message || String(err)) });
+  }
+});
+
 app.post('/api/deploy/vercel', async (req, res) => {
   try {
     const { vercelToken, repoName, files } = req.body;
@@ -779,16 +826,6 @@ app.post('/api/admin/keys/sync', async (req, res) => {
       isQuotaExhausted: k.isQuotaExhausted || false
     }));
     console.log(`[DEVWEBIA] Successfully synced ${adminGeminiKeys.length} Gemini API keys from client.`);
-
-    if (db) {
-      try {
-        const docRef = doc(db, 'admin_config', 'gemini_keys');
-        await setDoc(docRef, { keys: adminGeminiKeys }, { merge: true });
-        console.log('[DEVWEBIA] Synced keys saved to Firestore.');
-      } catch (err) {
-        console.warn('[DEVWEBIA] Error saving synced keys to Firestore:', err);
-      }
-    }
   }
   res.json({ success: true, keys: adminGeminiKeys });
 });

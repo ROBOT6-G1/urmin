@@ -116,34 +116,27 @@ export async function fetchReferredUsers(referralCode: string, expectedCount?: n
     console.warn('Firestore referrals fetch error:', e);
   }
 
-  let records = Array.from(recordsMap.values());
-
-  // If expectedCount (e.g. user.referralsCount = 12) is greater than records.length, 
-  // ensure we have at least expectedCount items so the UI reflects the real referrals count accurately
-  const targetCount = Math.max(expectedCount || 0, records.length);
-  if (targetCount > records.length) {
-    const diff = targetCount - records.length;
-    for (let i = 0; i < diff; i++) {
-      const syntheticId = 'ref_sync_' + (i + 1) + '_' + cleanCode;
-      if (!recordsMap.has(syntheticId)) {
-        const dummyDate = new Date(Date.now() - i * 86400000 * 0.5).toISOString();
-        records.push({
-          id: syntheticId,
-          referrerId: '',
-          referrerEmail: '',
-          referrerCode: cleanCode,
-          referredUserId: 'usr_syn_' + i,
-          referredUserEmail: `filleul.actif${i + 1}@gmail.com`,
-          bonusCredits: 5,
-          createdAt: dummyDate,
-        });
-      }
-    }
-  }
+  const records = Array.from(recordsMap.values());
 
   // Sort newest first
   records.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   return records;
+}
+
+/**
+ * Calculates total referral credits earned by a referral code in the current month (YYYY-MM)
+ */
+export async function getMonthlyReferralCreditsEarned(referralCode: string): Promise<number> {
+  if (!referralCode) return 0;
+  const currentMonthStr = new Date().toISOString().substring(0, 7);
+  try {
+    const records = await fetchReferredUsers(referralCode);
+    return records
+      .filter((r) => r.createdAt && r.createdAt.startsWith(currentMonthStr))
+      .reduce((sum, r) => sum + (r.bonusCredits || 0), 0);
+  } catch (e) {
+    return 0;
+  }
 }
 
 export interface ApplyReferralResult {
@@ -192,24 +185,18 @@ export async function applyReferralCode(
       console.warn('Firestore user search by referralCode failed:', dbErr);
     }
 
-    // 2. If not found in Firestore query, check fallback or match pattern
+    // 2. If not found by exact query, check all users in Firestore for case-insensitive match
     if (!referrerUser) {
-      // Mock/Admin fallback for DEVWEB codes if not in DB yet
-      if (code.startsWith('DEVWEB-') || code.length >= 6) {
-        referrerUser = {
-          id: 'usr_parrain_' + code.toLowerCase(),
-          email: 'parrain.' + code.toLowerCase() + '@devwebia.mg',
-          name: 'Parrain ' + code,
-          plan: 'pro',
-          credits: 100,
-          storageUsedMb: 0,
-          referralCode: code,
-          referralsCount: 0,
-          githubConnected: false,
-          vercelConnected: false,
-          firebaseConnected: true,
-          createdAt: new Date().toISOString(),
-        };
+      try {
+        const allUsersSnap = await getDocs(collection(db, 'users'));
+        allUsersSnap.forEach((uDoc) => {
+          const uData = uDoc.data() as UserProfile;
+          if (uData.referralCode && uData.referralCode.toUpperCase() === code) {
+            referrerUser = uData;
+          }
+        });
+      } catch (e) {
+        console.warn('Firestore fallback user scan failed:', e);
       }
     }
 
@@ -221,8 +208,45 @@ export async function applyReferralCode(
     }
 
     // 3. Process referral bonus for both referrer and new user
-    const bonus = 5;
-    const newCurrentUserCredits = (currentUser.credits || 0) + bonus;
+    const defaultBonus = 5;
+    const maxFreeCreditsMonthly = 30;
+    const currentMonthStr = new Date().toISOString().substring(0, 7);
+
+    // Calculate bonus for current user (Free plan cap: 30 credits max per month)
+    let userBonus = defaultBonus;
+    if (currentUser.plan === 'free') {
+      let currentUserMonthlyRefCredits = 0;
+      if (currentUser.referralCode) {
+        const currentUserRecords = await fetchReferredUsers(currentUser.referralCode);
+        currentUserMonthlyRefCredits = currentUserRecords
+          .filter((r) => r.createdAt && r.createdAt.startsWith(currentMonthStr))
+          .reduce((sum, r) => sum + (r.bonusCredits || 0), 0);
+      }
+
+      const availableByMonthlyRef = Math.max(0, maxFreeCreditsMonthly - currentUserMonthlyRefCredits);
+      const availableByTotalCredits = Math.max(0, maxFreeCreditsMonthly - (currentUser.credits || 0));
+      userBonus = Math.min(defaultBonus, availableByMonthlyRef, availableByTotalCredits);
+      if (userBonus < 0) userBonus = 0;
+    }
+
+    // Calculate bonus for referrer user (Free plan cap: 30 credits max per month)
+    let referrerBonus = defaultBonus;
+    if (referrerUser.plan === 'free') {
+      let referrerMonthlyRefCredits = 0;
+      if (referrerUser.referralCode) {
+        const refRecords = await fetchReferredUsers(referrerUser.referralCode);
+        referrerMonthlyRefCredits = refRecords
+          .filter((r) => r.createdAt && r.createdAt.startsWith(currentMonthStr))
+          .reduce((sum, r) => sum + (r.bonusCredits || 0), 0);
+      }
+
+      const refAvailableByMonthlyRef = Math.max(0, maxFreeCreditsMonthly - referrerMonthlyRefCredits);
+      const refAvailableByTotalCredits = Math.max(0, maxFreeCreditsMonthly - (referrerUser.credits || 0));
+      referrerBonus = Math.min(defaultBonus, refAvailableByMonthlyRef, refAvailableByTotalCredits);
+      if (referrerBonus < 0) referrerBonus = 0;
+    }
+
+    const newCurrentUserCredits = (currentUser.credits || 0) + userBonus;
 
     const updatedCurrentUser: UserProfile = {
       ...currentUser,
@@ -238,8 +262,8 @@ export async function applyReferralCode(
       const userRef = doc(db, 'users', currentUser.id);
       await setDoc(userRef, updatedCurrentUser, { merge: true });
 
-      // Update Referrer User in Firestore (+5 credits, +1 referralsCount)
-      const newReferrerCredits = (referrerUser.credits || 0) + bonus;
+      // Update Referrer User in Firestore (+referrerBonus credits, +1 referralsCount)
+      const newReferrerCredits = (referrerUser.credits || 0) + referrerBonus;
       const newReferrerCount = (referrerUser.referralsCount || 0) + 1;
 
       const referrerRef = doc(db, 'users', referrerUser.id);
@@ -261,7 +285,7 @@ export async function applyReferralCode(
         referrerCode: code,
         referredUserId: currentUser.id,
         referredUserEmail: currentUser.email,
-        bonusCredits: bonus,
+        bonusCredits: referrerBonus,
         createdAt: new Date().toISOString(),
       };
 
@@ -279,10 +303,15 @@ export async function applyReferralCode(
 
     clearPendingReferralCode();
 
+    let successMsg = `Mahafinaritra! Nampidirina am-pahombiazana ny code parrain ${code}. Azonao hatrany ny +${userBonus} Crédits bonus!`;
+    if (userBonus === 0 && currentUser.plan === 'free') {
+      successMsg = `Code parrain validé! Tsy nahazo crédit bonus intsony ianao satria efa feno 30/30 Crédits max par mois (Limitation Plan Gratuit). Passy amin'ny Plan PRO hahazoana crédit illimité!`;
+    }
+
     return {
       success: true,
-      message: `Mahafinaritra! Nampidirina am-pahombiazana ny code parrain ${code}. Azonao hatrany ny +5 Crédits bonus!`,
-      bonusCredits: bonus,
+      message: successMsg,
+      bonusCredits: userBonus,
       updatedUser: updatedCurrentUser,
     };
   } catch (err: any) {

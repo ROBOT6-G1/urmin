@@ -27,7 +27,7 @@ const DEFAULT_USER: UserProfile = {
   credits: 5, // 5 credits bonus ho an'ny membre vaovao
   storageUsedMb: 120, // 120MB used out of 1000MB
   referralCode: 'DEVWEB-8921',
-  referralsCount: 2,
+  referralsCount: 0,
   githubConnected: false,
   vercelConnected: false,
   firebaseConnected: false,
@@ -106,7 +106,7 @@ const INITIAL_PROJECT_FILES: CodeFile[] = [
       </div>
       <div class="relative">
         <div class="aspect-square rounded-3xl bg-slate-800 border border-white/10 overflow-hidden shadow-2xl relative group">
-          <img id="cms-hero-img" src="https://images.unsplash.com/photo-1590736704728-f4730bb30770?auto=format&fit=crop&w=800&q=80" alt="Vanille Madagascar" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
+          <img id="cms-hero-img" src="https://images.unsplash.com/photo-1590736704728-f4730bb30770?auto=format&fit=crop&w=800&q=80" alt="Vanille Madagascar" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=800&q=80';">
           <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent flex flex-col justify-end p-8">
             <span class="text-emerald-400 font-bold text-sm" id="cms-hero-img-label">Gousse de Vanille Bourbon</span>
             <p class="text-white text-xl font-extrabold">Vanille voajanahary avy any Sambava</p>
@@ -127,7 +127,7 @@ const INITIAL_PROJECT_FILES: CodeFile[] = [
       <!-- Card 1 -->
       <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300">
         <div class="h-64 bg-slate-100 relative overflow-hidden">
-          <img id="cms-p1-img" src="https://images.unsplash.com/photo-1590736704728-f4730bb30770?auto=format&fit=crop&w=600&q=80" class="w-full h-full object-cover">
+          <img id="cms-p1-img" src="https://images.unsplash.com/photo-1590736704728-f4730bb30770?auto=format&fit=crop&w=600&q=80" class="w-full h-full object-cover" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=800&q=80';">
           <span class="absolute top-4 right-4 bg-emerald-600 text-white text-xs font-bold px-3 py-1 rounded-full">Top Vente</span>
         </div>
         <div class="p-6 space-y-4">
@@ -143,7 +143,7 @@ const INITIAL_PROJECT_FILES: CodeFile[] = [
       <!-- Card 2 -->
       <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300">
         <div class="h-64 bg-slate-100 relative overflow-hidden">
-          <img id="cms-p2-img" src="https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=600&q=80" class="w-full h-full object-cover">
+          <img id="cms-p2-img" src="https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=600&q=80" class="w-full h-full object-cover" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=800&q=80';">
         </div>
         <div class="p-6 space-y-4">
           <h3 class="text-xl font-bold text-slate-900" id="cms-p2-title">Sachet Rafia Handcrafted</h3>
@@ -158,7 +158,7 @@ const INITIAL_PROJECT_FILES: CodeFile[] = [
       <!-- Card 3 -->
       <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300">
         <div class="h-64 bg-slate-100 relative overflow-hidden">
-          <img id="cms-p3-img" src="https://images.unsplash.com/photo-1587049352847-4a222e784d38?auto=format&fit=crop&w=600&q=80" class="w-full h-full object-cover">
+          <img id="cms-p3-img" src="https://images.unsplash.com/photo-1587049352847-4a222e784d38?auto=format&fit=crop&w=600&q=80" class="w-full h-full object-cover" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=800&q=80';">
         </div>
         <div class="p-6 space-y-4">
           <h3 class="text-xl font-bold text-slate-900" id="cms-p3-title">Miel Sauvage 500g</h3>

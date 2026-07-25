@@ -35,6 +35,8 @@ export const GoogleSeoModal: React.FC<GoogleSeoModalProps> = ({
 }) => {
   const [selectedProjectId, setSelectedProjectId] = useState<string>(projects[0]?.id || '');
   const [verificationTag, setVerificationTag] = useState<string>('');
+  const [aiVerificationTag, setAiVerificationTag] = useState<string>('');
+  const [aiSeoKeywords, setAiSeoKeywords] = useState<string>('');
   const [step, setStep] = useState<'input' | 'success' | 'deploying' | 'done'>('input');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [deployStepText, setDeployStepText] = useState<string>('');
@@ -290,18 +292,50 @@ export const GoogleSeoModal: React.FC<GoogleSeoModalProps> = ({
           </p>
 
           {onSendSeoPromptToAI && (
-            <button
-              onClick={() => {
-                const proj = projects.find((p) => p.id === selectedProjectId) || projects[0];
-                const title = proj ? proj.title : 'My Site';
-                const promptText = `Miarahaba DEVWEB IA! Tiako handeha amin'ny Google Search Console ity projet "${title}" ity. Ampio aho hampiditra ny balise de vérification Google HTML ao amin'ny fichier index.html. Angataho amiko ilay balise de vérification azafady, dia ampidiro ao amin'ny index.html an'ity projet ity ihany izany.`;
-                onSendSeoPromptToAI(promptText);
-              }}
-              className="w-full mt-2 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-[11px] flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              <span>Hampiditra amin'ny alalan'ny IA (DEVWEB IA)</span>
-            </button>
+            <div className="mt-4 p-4 border border-indigo-500/30 bg-indigo-950/30 rounded-xl space-y-3">
+              <h3 className="font-bold text-indigo-300 flex items-center gap-2 mb-2">
+                <Sparkles className="w-4 h-4" />
+                Ampidiro amin'ny alalan'ny IA (DEVWEB IA)
+              </h3>
+              <div className="space-y-1.5">
+                <label className="block text-slate-300 font-semibold text-[11px]">Balise HTML (Google Console) :</label>
+                <input
+                  type="text"
+                  value={aiVerificationTag}
+                  onChange={(e) => setAiVerificationTag(e.target.value)}
+                  placeholder='<meta name="google-site-verification" content="..." />'
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-indigo-500 text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-slate-300 font-semibold text-[11px]">Mot clé de recherche (SEO Keywords) :</label>
+                <input
+                  type="text"
+                  value={aiSeoKeywords}
+                  onChange={(e) => setAiSeoKeywords(e.target.value)}
+                  placeholder="Ohatra: agence web madagascar, creation site web"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-indigo-500 text-xs"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!aiVerificationTag && !aiSeoKeywords) {
+                    setErrorMessage("Azafady ampidiro ny balise na ny mot clé de recherche ho an'ny IA.");
+                    return;
+                  }
+                  const proj = projects.find((p) => p.id === selectedProjectId) || projects[0];
+                  const title = proj ? proj.title : 'My Site';
+                  const promptText = `Miarahaba DEVWEB IA! Tiako handeha amin'ny Google Search Console ity projet "${title}" ity.\n\nAmpidiro ao amin'ny fichier index.html ity balise de vérification ity:\n\`\`\`html\n${aiVerificationTag || '(tsy nasiana)'}\n\`\`\`\n\nAry ampidiro ihany koa ireto mots-clés SEO ireto ao amin'ny meta keywords sy description:\n"${aiSeoKeywords || '(tsy nasiana)'}"\n\nAmpidiro amin'ny toerana tokony hametrahana azy mba hampandeha tsara ilay SEO.`;
+                  onSendSeoPromptToAI(promptText);
+                  onClose();
+                }}
+                className="w-full mt-2 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-[11px] flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <span>Alefaso any amin'ny IA (DEVWEB IA)</span>
+              </button>
+            </div>
           )}
         </div>
 

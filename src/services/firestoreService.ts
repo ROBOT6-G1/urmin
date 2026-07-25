@@ -47,6 +47,7 @@ export async function dbSyncUser(userProfile: UserProfile): Promise<UserProfile>
   try {
     const userDocRef = doc(db, 'users', userProfile.id);
     const userSnapshot = await getDoc(userDocRef);
+    const isAdmin = userProfile.email.toLowerCase() === 'horlandobe@gmail.com';
 
     if (userSnapshot.exists()) {
       const dbUser = userSnapshot.data() as UserProfile;
@@ -54,7 +55,9 @@ export async function dbSyncUser(userProfile: UserProfile): Promise<UserProfile>
       const merged: UserProfile = {
         ...userProfile,
         ...dbUser,
-        // Ensure non-sensitive local connections are preserved if not in DB
+        plan: isAdmin ? 'pro' : (dbUser.plan || 'free'),
+        credits: isAdmin ? 999 : (dbUser.credits !== undefined ? dbUser.credits : (userProfile.credits !== undefined ? userProfile.credits : 5)),
+        referralsCount: dbUser.referralsCount !== undefined ? dbUser.referralsCount : 0,
         githubConnected: userProfile.githubConnected || dbUser.githubConnected,
         vercelConnected: userProfile.vercelConnected || dbUser.vercelConnected,
       };
@@ -63,9 +66,15 @@ export async function dbSyncUser(userProfile: UserProfile): Promise<UserProfile>
       await setDoc(userDocRef, merged, { merge: true });
       return merged;
     } else {
-      // First time registration
-      await setDoc(userDocRef, userProfile);
-      return userProfile;
+      // First time registration in Firestore
+      const newUserProfile: UserProfile = {
+        ...userProfile,
+        plan: isAdmin ? 'pro' : 'free',
+        credits: isAdmin ? 999 : 5,
+        referralsCount: 0,
+      };
+      await setDoc(userDocRef, newUserProfile);
+      return newUserProfile;
     }
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
