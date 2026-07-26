@@ -497,8 +497,8 @@ export default function App() {
         });
 
         if (data.files && data.files.length > 0) {
-          // Update Project files & intelligent site title
-          const updatedFiles: CodeFile[] = data.files;
+          // Smart file merging: preserve existing files that were not modified, and update/add returned files
+          const newOrUpdatedFiles: CodeFile[] = data.files;
 
           const updatedProjects = projects.map((p) => {
             if (p.id === currentProject.id) {
@@ -506,7 +506,7 @@ export default function App() {
               if (data.siteTitle && data.siteTitle.trim()) {
                 autoTitle = data.siteTitle.trim();
               } else if (p.title.startsWith('Projet Privé') || p.title.startsWith('Projet Vaovao')) {
-                const idxFile = updatedFiles.find((f) => f.name === 'index.html');
+                const idxFile = newOrUpdatedFiles.find((f) => f.name === 'index.html');
                 if (idxFile) {
                   const match = idxFile.content.match(/<title>(.*?)<\/title>/i);
                   if (match && match[1] && match[1].trim() && !match[1].includes('Tranonkala Privé')) {
@@ -515,11 +515,21 @@ export default function App() {
                 }
               }
 
+              // Smart merge: retain all existing project files and update or add the modified files
+              const mergedFilesMap = new Map<string, CodeFile>();
+              (p.files || []).forEach((f) => {
+                mergedFilesMap.set(f.name.toLowerCase(), f);
+              });
+              newOrUpdatedFiles.forEach((f) => {
+                mergedFilesMap.set(f.name.toLowerCase(), f);
+              });
+              const mergedFiles = Array.from(mergedFilesMap.values());
+
               return {
                 ...p,
                 title: autoTitle,
                 description: data.explanation || p.description,
-                files: updatedFiles,
+                files: mergedFiles,
                 updatedAt: new Date().toISOString(),
                 versions: [
                   ...p.versions,
@@ -527,7 +537,7 @@ export default function App() {
                     id: 'v_' + Date.now(),
                     timestamp: new Date().toISOString(),
                     prompt: text,
-                    files: updatedFiles,
+                    files: mergedFiles,
                     summary: data.explanation || 'Mise à jour du site',
                   },
                 ],
@@ -547,7 +557,7 @@ export default function App() {
             sender: 'ai',
             text: data.explanation || 'Vita am-pahombiazana ny tranonkala!',
             timestamp: new Date().toISOString(),
-            generatedCode: updatedFiles,
+            generatedCode: newOrUpdatedFiles,
             creditsDeducted: 1,
           };
 

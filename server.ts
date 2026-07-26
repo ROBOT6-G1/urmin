@@ -417,6 +417,12 @@ Ta mission est double :
       - "apropos.html", "services.html", "realisations.html", "faq.html", "blog.html", "contact.html", "reservation.html".
       - "admin.html" & "admin.js" : Panneau Admin complet avec authentification (mot de passe "1234"), édition des textes et des URLs d'images pour TOUTES les 10 options, uploader de fichiers image Canvas (<150KB), liste de messages/commandes/réservations et sauvegarde Firestore / LocalStorage.
       - "app.js", "firebase-config.js", "style.css".
+
+   F) **RÈGLE CRUCIALE POUR LES MISES À JOUR ET MODIFICATIONS (INTERDICTION ABSOLUE DE EFFACER LE CONTENU EXISTANT)** :
+      - Lorsque le projet contient déjà du code (fichiers existants) et que l'utilisateur demande une modification ou un ajout (ex: "ajoute un produit", "change la couleur", "ajoute une section", "met un bouton", "ajoute une page") :
+      - **CONSERVATION DU CONTENU** : Tu DOIS OBLIGATOIREMENT conserver l'intégralité du contenu général, des 10 sections, des textes, des images, des styles et des scripts déjà présents. Ne supprime JAMAIS le reste du site pour ne garder que l'élément demandé !
+      - **INTEGRATION INTELLIGENTE** : Insère proprement le nouvel élément demandé au bon endroit dans la structure existante.
+      - **RENVOI DES FICHIERS MODIFIÉS** : Renvoie les fichiers qui ont été modifiés dans leur intégralité. Le système effectuera une fusion automatique avec les fichiers existants non modifiés pour qu'aucun fichier ne soit perdu.
 `;
 
 function parseGeminiJsonResponse(rawText: string) {
@@ -518,11 +524,13 @@ app.post('/api/generate-website', async (req, res) => {
 
     let codeContext = '';
     if (existingFiles && Array.isArray(existingFiles) && existingFiles.length > 0) {
-      codeContext = `\nVoici le code actuel du projet à modifier ou enrichir :\n` +
-        existingFiles.map((f: any) => `--- FILE: ${f.name} ---\n${f.content}`).join('\n\n');
+      codeContext = `\n[CODE ACTUEL DU PROJET À CONSERVER ET À ENRICHIR] :\n` +
+        existingFiles.map((f: any) => `--- FILE: ${f.name} ---\n${f.content}`).join('\n\n') +
+        `\n\n[INSTRUCTION MAJEURE DE CONSERVATION DE CODE] :\n` +
+        `Les fichiers ci-dessus représentent le site web existant. Tu DOIS CONSERVER l'intégralité du contenu, des pages, des sections, des textes et des fonctionnalités existantes. Tu dois simplement apporter la modification ou l'ajout demandé par l'utilisateur ci-dessous sans supprimer ni raccourcir le reste !`;
     }
 
-    const fullPrompt = `${userContext}\n${codeContext}\n\nDemande de l'utilisateur : ${prompt}`;
+    const fullPrompt = `${userContext}\n${codeContext}\n\nDemande de modification / ajout de l'utilisateur : ${prompt}`;
 
     const responseSchema = {
       type: Type.OBJECT,
