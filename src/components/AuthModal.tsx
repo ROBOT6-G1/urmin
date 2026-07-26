@@ -5,6 +5,7 @@ import {
   auth,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
   updateProfile,
 } from '../lib/firebase';
 import {
@@ -38,18 +39,49 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   
+  const [resetSuccessText, setResetSuccessText] = useState<string | null>(null);
+  const [emailInUsePrompt, setEmailInUsePrompt] = useState<boolean>(false);
+
   const [adminPassword, setAdminPassword] = useState('');
   const [showAdminPasswordInput, setShowAdminPasswordInput] = useState(false);
 
   if (!isOpen) return null;
+
+  const handleForgotPassword = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setAuthError('Azafady, ampidiro ny adiresy email-nao aloha mba handefasana ny hamerenana ny mot de passe!');
+      return;
+    }
+
+    setIsLoading(true);
+    setAuthError(null);
+    setResetSuccessText(null);
+
+    try {
+      await sendPasswordResetEmail(auth, cleanEmail);
+      setResetSuccessText(`Efa lasa amin'ny email-nao (${cleanEmail}) ny rohy (lien) hamerenana ny teny miafina. Jereo ny Boîte de réception na Spam!`);
+    } catch (err: any) {
+      console.error('Reset Password Error:', err);
+      if (err.code === 'auth/user-not-found') {
+        setAuthError(`Tsy misy kaonty mampiasa ity email ity (${cleanEmail}).`);
+      } else {
+        setAuthError('Tsy nahomby ny fandefasana ny imailaka hamerenana ny teny miafina. Azafady andramo indray.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setAuthError(null);
     setSecurityStatusText(null);
+    setEmailInUsePrompt(false);
+    setResetSuccessText(null);
 
-    const cleanEmail = email.trim();
+    const cleanEmail = email.trim().toLowerCase();
     const cleanUsername = username.trim();
 
     // 1. Basic Form Validations
@@ -87,8 +119,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         // Fallback gracefully without blocking registration
       }
 
-      // 4. Anti-Double Account Verification (Analyze IP, Chrome Device Fingerprint, Location)
-      setSecurityStatusText('Manao analyse IP, Chrome Device ID & Anti-Double Compte...');
+      // 4. Anti-Double Account Verification (Analyze Device Fingerprint & Location)
+      setSecurityStatusText('Manao analyse Chrome Device ID & Anti-Double Compte...');
       const securityCheck = await verifyAntiDoubleAccount(cleanEmail, userLocation);
       
       if (!securityCheck.allowed) {
@@ -116,7 +148,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       console.error('Sign Up Error:', err);
       let errMsg = 'Nisy olana teo am-pisoratana anarana. Azafady andramo indray.';
       if (err.code === 'auth/email-already-in-use') {
-        errMsg = 'Efa misy mampiasa ity adiresy email ity!';
+        errMsg = `Efa misy kaonty mampiasa ity adiresy email ity (${cleanEmail})!`;
+        setEmailInUsePrompt(true);
       } else if (err.code === 'auth/invalid-email') {
         errMsg = 'Diso ny adiresy email nampidirinao!';
       } else if (err.code === 'auth/weak-password') {
@@ -137,8 +170,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     e.preventDefault();
     setIsLoading(true);
     setAuthError(null);
+    setEmailInUsePrompt(false);
+    setResetSuccessText(null);
 
-    const cleanEmail = email.trim();
+    const cleanEmail = email.trim().toLowerCase();
 
     if (!cleanEmail || !cleanEmail.includes('@')) {
       setAuthError('Azafady, ampidiro adiresy email mety !');
@@ -161,11 +196,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       console.error('Sign In Error:', err);
       let errMsg = 'Diso ny email na ny teny miafina (mot de passe)!';
       if (err.code === 'auth/user-not-found') {
-        errMsg = 'Tsy misy kaonty mampiasa io email io!';
-      } else if (err.code === 'auth/wrong-password') {
-        errMsg = 'Diso ny teny miafina (mot de passe) nampidirinao!';
-      } else if (err.code === 'auth/invalid-credential') {
-        errMsg = 'Email na teny miafina diso. Andramo indray.';
+        errMsg = `Tsy mbola misy kaonty mampiasa ity email ity (${cleanEmail}). Tsindrio ny 'Fisoratana' mba hamoronana kaonty vaovao.`;
+      } else if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        errMsg = 'Diso ny email na ny teny miafina (mot de passe) nampidirinao. Jereo tsara ny litera madinika/maventy na tsindrio "Mot de passe oublié".';
       } else if (err.code === 'auth/operation-not-allowed') {
         errMsg = 'Tsy mbola mavitrika (activé) ny Email/Password ao amin\'ny Firebase Console. Azafady jereo ny Configuration.';
       } else if (err.message) {
@@ -228,10 +261,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
         )}
 
+        {resetSuccessText && (
+          <div className="p-3.5 bg-emerald-950/80 border border-emerald-500/50 text-emerald-200 text-xs rounded-2xl text-center leading-relaxed font-medium flex items-start gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+            <span>{resetSuccessText}</span>
+          </div>
+        )}
+
         {authError && (
-          <div className="p-3.5 bg-amber-950/80 border border-amber-500/50 text-amber-200 text-xs rounded-2xl text-center leading-relaxed font-medium flex items-start gap-2">
-            <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-            <span>{authError}</span>
+          <div className="p-3.5 bg-amber-950/80 border border-amber-500/50 text-amber-200 text-xs rounded-2xl text-center leading-relaxed font-medium space-y-2">
+            <div className="flex items-start gap-2 text-left">
+              <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <span>{authError}</span>
+            </div>
+            {emailInUsePrompt && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSignUp(false);
+                  setAuthError(null);
+                  setEmailInUsePrompt(false);
+                }}
+                className="w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-colors flex items-center justify-center gap-1.5 shadow"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Tsindrio eto mba hiditra (Fidirana / Connexion)</span>
+              </button>
+            )}
           </div>
         )}
 
@@ -336,10 +392,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                <Lock className="w-3 h-3 text-indigo-400" />
-                <span>Teny miafina (Mot de passe)</span>
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                  <Lock className="w-3 h-3 text-indigo-400" />
+                  <span>Teny miafina (Mot de passe)</span>
+                </label>
+                {!isSignUp && (
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 transition-colors underline"
+                  >
+                    Mot de passe oublié ?
+                  </button>
+                )}
+              </div>
               <input
                 type="password"
                 required

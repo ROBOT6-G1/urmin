@@ -261,7 +261,7 @@ export async function verifyAntiDoubleAccount(
   try {
     const devicesRef = collection(db, 'security_devices');
 
-    // 1. Check by Device ID
+    // 1. Check by Device ID (Prevents multiple accounts on the exact same browser/phone)
     const qDevice = query(devicesRef, where('deviceId', '==', deviceId));
     const snapDevice = await getDocs(qDevice);
 
@@ -270,28 +270,13 @@ export async function verifyAntiDoubleAccount(
       if (data.email && data.email.toLowerCase() !== cleanEmail) {
         return {
           allowed: false,
-          reason: `Tsy avela manao double compte! Efa misy kaonty hafa (${data.email}) nisoratra anarana avy amin'ity Chrome / Téléphone ID ity!`,
+          reason: `Tsy avela manao double compte! Efa misy kaonty hafa (${data.email}) nisoratra anarana tamin'ity aparelho / navigateur ity!`,
           deviceInfo,
         };
       }
     }
 
-    // 2. Check by IP Address (if public IP is detected and not local)
-    if (ipAddress && ipAddress !== '127.0.0.1') {
-      const qIp = query(devicesRef, where('ipAddress', '==', ipAddress));
-      const snapIp = await getDocs(qIp);
-
-      for (const docSnap of snapIp.docs) {
-        const data = docSnap.data();
-        if (data.email && data.email.toLowerCase() !== cleanEmail) {
-          return {
-            allowed: false,
-            reason: `Tsy avela manao double compte! Efa misy kaonty nisoratra anarana tamin'ny IP adresse (${ipAddress}) ampiasainao ity!`,
-            deviceInfo,
-          };
-        }
-      }
-    }
+    // IP address is logged in deviceInfo for security audit, but not used to block carrier-grade NAT mobile users on shared cellular towers.
   } catch (e) {
     console.warn('Firestore security check warning (proceeding securely):', e);
   }
