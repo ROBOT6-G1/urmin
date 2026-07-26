@@ -154,37 +154,57 @@ export async function fetchPublicIpAddress(): Promise<string> {
  * Mandates Geolocation access from browser before sign up
  */
 export function requestGeolocationPermission(): Promise<{ latitude: number; longitude: number; accuracy: number }> {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error('Tsy manana fonction géolocalisation ny navigateur ampiasainao.'));
+  return new Promise((resolve) => {
+    const fallbackLocation = { latitude: 0, longitude: 0, accuracy: 0 };
+
+    if (!navigator || !navigator.geolocation) {
+      resolve(fallbackLocation);
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        resolve({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-        });
-      },
-      (error) => {
-        let msg = 'Mila manome alalana ny géolocalisation ianao alohan\'ny hisoratana anarana ho fiarovana amin\'ny double compte!';
-        if (error.code === error.PERMISSION_DENIED) {
-          msg = 'Tsy nekena ny autorisation de géolocalisation (Permission Denied). Ampio alalana ao amin\'ny parametre an\'ny navigateur na téléphone anao izany mba afahana misoratra anarana!';
-        } else if (error.code === error.POSITION_UNAVAILABLE) {
-          msg = 'Tsy hita ny toerana (GPS/Localisation) misy anao amin\'izao fotoana izao.';
-        } else if (error.code === error.TIMEOUT) {
-          msg = 'Lany ny fotoana miandry ny géolocalisation. Andramo indray azafady.';
-        }
-        reject(new Error(msg));
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
+    let resolved = false;
+
+    // Safety timer: resolve after 2.5s if browser hangs or waits for permission
+    const timer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        resolve(fallbackLocation);
       }
-    );
+    }, 2500);
+
+    try {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            resolve({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracy: position.coords.accuracy,
+            });
+          }
+        },
+        () => {
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            resolve(fallbackLocation);
+          }
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: 2000,
+          maximumAge: 600000,
+        }
+      );
+    } catch {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timer);
+        resolve(fallbackLocation);
+      }
+    }
   });
 }
 

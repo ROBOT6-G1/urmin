@@ -78,16 +78,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     try {
-      // 3. Request Geolocation Permission (Mandatory before sign up)
-      setSecurityStatusText('Mizaha ny Autorisation de géolocalisation sy fiarovana...');
-      let userLocation: { latitude: number; longitude: number; accuracy: number };
+      // 3. Request Geolocation Permission (Non-blocking security check)
+      setSecurityStatusText('Mizaha ny fiarovana sy géolocalisation...');
+      let userLocation = { latitude: 0, longitude: 0, accuracy: 0 };
       try {
         userLocation = await requestGeolocationPermission();
-      } catch (geoErr: any) {
-        setAuthError(geoErr.message || 'Mila manome alalana ny géolocalisation ianao alohan\'ny hisoratana anarana!');
-        setIsLoading(false);
-        setSecurityStatusText(null);
-        return;
+      } catch {
+        // Fallback gracefully without blocking registration
       }
 
       // 4. Anti-Double Account Verification (Analyze IP, Chrome Device Fingerprint, Location)
@@ -299,7 +296,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <span>Fiarovana Avo Lenta (Anti-Double Compte)</span>
                 </div>
                 <ul className="space-y-1 text-slate-400 pl-1 list-disc list-inside leading-relaxed">
-                  <li><strong>Géolocalisation OBLIGATOIRE:</strong> Mila manome alalana ny localisation ny client alohan'ny hisoratana anarana.</li>
+                  <li><strong>Géolocalisation & Fiarovana:</strong> Fiarovana automatique ny kaonty ambonin'ny IP adresse sy appareil-nao.</li>
                   <li><strong>Analyse IP & Chrome ID:</strong> Hijery sy hanara-maso IP Adresse sy Chrome Device Fingerprint ny système.</li>
                   <li><strong>Tsy manaiky Email Alias:</strong> Tsy ekena ny email misy alias '+' na mampiasa temp mail.</li>
                 </ul>
