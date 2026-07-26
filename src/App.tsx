@@ -45,6 +45,7 @@ import {
   saveTickets,
   getStoredGeminiKeys,
   saveGeminiKeys,
+  INITIAL_PROJECT_FILES,
 } from './services/storage';
 import { detectPendingReferralCode, applyReferralCode } from './services/referralService';
 import {
@@ -57,24 +58,30 @@ import {
   dbSavePayment,
   dbFetchTickets,
   dbSaveTicket,
+  dbAuditAndResetUnpaidProUsers,
+  dbFetchAllUsers,
 } from './services/firestoreService';
 
 export default function App() {
   const [user, setUser] = useState<UserProfile>(getStoredUser);
   const [projects, setProjects] = useState<Project[]>(getStoredProjects);
   const [currentProjectIdState, setCurrentProjectIdState] = useState<string>(
-    () => getCurrentProject().id
+    () => getCurrentProject()?.id || ''
   );
 
   // Strictly filter projects by current logged-in user account for privacy
   const userProjects = useMemo(() => {
+    if (!user) return projects;
     return projects.filter(
-      (p) => p.userId === user.id || (p.userEmail && p.userEmail === user.email)
+      (p) => (user.id && p.userId === user.id) || (user.email && p.userEmail && p.userEmail === user.email)
     );
-  }, [projects, user.id, user.email]);
+  }, [projects, user?.id, user?.email]);
 
   const currentProject =
-    userProjects.find((p) => p.id === currentProjectIdState) || userProjects[0] || projects[0];
+    userProjects.find((p) => p.id === currentProjectIdState) ||
+    userProjects[0] ||
+    projects[0] ||
+    INITIAL_PROJECT;
 
   const [activeTab, setActiveTab] = useState<'chat' | 'preview'>('chat');
   const [previewSubTab, setPreviewSubTab] = useState<'web' | 'code' | 'publish' | 'download'>('web');
@@ -171,7 +178,7 @@ export default function App() {
   // Synchronize all user and admin data from Firestore on mount / user ID changes
   useEffect(() => {
     const syncDatabaseData = async () => {
-      if (!user.id || user.id === 'usr_client_default') return;
+      if (!user?.id || user.id === 'usr_client_default') return;
       try {
         // A. Sync User Profile
         const syncedUser = await dbSyncUser(user);
@@ -182,30 +189,22 @@ export default function App() {
         // B. Sync Projects
         const dbProjects = await dbFetchUserProjects(user.id, user.email);
         if (dbProjects.length > 0) {
-          setProjects((prev) => {
-            // Keep DB projects and any local ones that are not in DB yet
-            const updated = [...dbProjects];
-            prev.forEach((localProj) => {
-              const isUserProj = localProj.userId === user.id || localProj.userEmail === user.email;
-              if (isUserProj && !dbProjects.some((dp) => dp.id === localProj.id)) {
-                updated.push(localProj);
-                dbSaveProject(localProj).catch((e) => console.error('Error uploading local project to DB:', e));
-              }
-            });
-            return updated;
-          });
+          setProjects(dbProjects);
         } else {
           // If no projects in Firestore but user has local projects, upload them
-          const userLocalProjs = projects.filter(
+          const userLocalProjs = getStoredProjects().filter(
             (p) => p.userId === user.id || p.userEmail === user.email
           );
-          for (const localProj of userLocalProjs) {
-            await dbSaveProject(localProj);
+          if (userLocalProjs.length > 0) {
+            for (const localProj of userLocalProjs) {
+              await dbSaveProject(localProj);
+            }
+            setProjects(userLocalProjs);
           }
         }
 
         // C. Sync Payments
-        const isAdmin = user.email === 'horlandobe@gmail.com';
+        const isAdmin = user.email === 'horlandobe@gmail.com' || user.email === 'eventuelleboutique@gmail.com';
         const dbPayments = await dbFetchPayments(user.id, user.email, isAdmin);
         if (dbPayments.length > 0) {
           setPayments((prev) => {
@@ -240,18 +239,18 @@ export default function App() {
     };
 
     syncDatabaseData();
-  }, [user.id]);
+  }, [user?.id]);
 
   // Ensure every user account has an isolated workspace project
   useEffect(() => {
-    if (userProjects.length === 0) {
+    if (userProjects.length === 0 && user?.id) {
       const defaultUserProj: Project = {
         id: 'proj_' + Date.now(),
         userId: user.id,
-        userEmail: user.email,
+        userEmail: user.email || '',
         isPrivate: true,
         title: 'Projet Privé ' + (user.name || 'Client'),
-        description: 'Espace de travail privé sy sécurisé ho an\'i ' + user.email,
+        description: 'Espace de travail privé sy sécurisé ho an\'i ' + (user.email || ''),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         files: [
@@ -262,7 +261,7 @@ export default function App() {
 <html lang="mg">
 <head>
   <meta charset="UTF-8">
-  <title>Espace Privé - ${user.name}</title>
+  <title>Espace Privé - ${user.name || 'Client'}</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-900 text-white min-h-screen flex items-center justify-center p-6">
@@ -272,7 +271,7 @@ export default function App() {
     </div>
     <h1 class="text-3xl font-extrabold text-indigo-300">Espace Privé DEVWEBIA</h1>
     <p class="text-slate-400 text-sm">
-      Tonga soa ${user.name}! Natsangana ny espace de travail privé-nao. Antsoy ny IA ao amin'ny Chat mba hamoronana ny site-nao.
+      Tonga soa ${user.name || 'Client'}! Natsangana ny espace de travail privé-nao. Antsoy ny IA ao amin'ny Chat mba hamoronana ny site-nao.
     </p>
   </div>
 </body>
@@ -284,7 +283,7 @@ export default function App() {
       setProjects((prev) => [defaultUserProj, ...prev]);
       setCurrentProjectIdState(defaultUserProj.id);
     }
-  }, [user.id, user.email, userProjects.length]);
+  }, [user?.id, user?.email, userProjects.length]);
 
   useEffect(() => {
     savePayments(payments);
@@ -363,13 +362,36 @@ export default function App() {
   };
 
   const handleDeleteProject = (id: string) => {
-    if (projects.length <= 1) return;
-    const remaining = projects.filter((p) => p.id !== id);
-    setProjects(remaining);
     dbDeleteProject(id).catch(console.error);
-    if (currentProjectIdState === id && remaining.length > 0) {
-      handleSelectProject(remaining[0].id);
-    }
+
+    setProjects((prev) => {
+      const remaining = prev.filter((p) => p.id !== id);
+      saveProjects(remaining);
+
+      if (remaining.length === 0) {
+        const newId = 'proj_' + Date.now();
+        const newProj: Project = {
+          id: newId,
+          userId: user.id,
+          userEmail: user.email,
+          title: 'Tranonkala Vaovao',
+          description: 'Tranonkala namboarina tamin\'i DEVWEBIA',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          files: INITIAL_PROJECT_FILES,
+          versions: [],
+        };
+        dbSaveProject(newProj).catch(console.error);
+        setCurrentProjectIdState(newId);
+        saveProjects([newProj]);
+        return [newProj];
+      } else {
+        if (currentProjectIdState === id && remaining.length > 0) {
+          handleSelectProject(remaining[0].id);
+        }
+        return remaining;
+      }
+    });
   };
 
   const handleNewProject = () => {
@@ -655,6 +677,13 @@ export default function App() {
         }
       }
     }).catch(console.error);
+  };
+
+  const handleRunAuditPro = async () => {
+    const res = await dbAuditAndResetUnpaidProUsers(payments);
+    const refreshedUsers = await dbFetchAllUsers();
+    setAllUsersList(refreshedUsers);
+    return res;
   };
 
   const handleAddGeminiKey = (name: string, key: string) => {
@@ -979,6 +1008,8 @@ export default function App() {
           setActiveTab('preview');
           setPreviewSubTab('web');
         }}
+        onDeleteProject={handleDeleteProject}
+        onRunAuditPro={handleRunAuditPro}
       />
 
       <ProjectsHistoryModal

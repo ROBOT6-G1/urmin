@@ -47,6 +47,7 @@ export const ProjectsHistoryModal: React.FC<ProjectsHistoryModalProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -204,15 +205,45 @@ export const ProjectsHistoryModal: React.FC<ProjectsHistoryModalProps> = ({
                           >
                             <Copy className="w-3.5 h-3.5" />
                           </button>
-                          {projects.length > 1 && (
-                            <button
-                              onClick={() => {
-                                if (confirm(`Tena tianao hofafana ve ny site "${proj.title}"?`)) {
+                          {deletingId === proj.id ? (
+                            <div className="flex items-center gap-1.5 bg-rose-950/80 border border-rose-500/50 rounded-lg p-1" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
                                   onDeleteProject(proj.id);
-                                }
+                                  setDeletingId(null);
+                                }}
+                                className="px-2 py-1 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded flex items-center gap-1 transition-colors"
+                                title="Hamafiso ny fafana"
+                              >
+                                <Check className="w-3 h-3" />
+                                <span>Fafana</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  setDeletingId(null);
+                                }}
+                                className="p-1 text-slate-400 hover:text-white"
+                                title="Ajanona"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                setDeletingId(proj.id);
                               }}
                               className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors"
-                              title="Fafana"
+                              title="Fafana ny site"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>

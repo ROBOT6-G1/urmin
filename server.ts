@@ -487,7 +487,7 @@ app.post('/api/generate-website', async (req, res) => {
 
     let userContext = `Plan utilisateur : ${userPlan || 'free'}.`;
     if (userPlan === 'free') {
-      userContext += ` Important: Sur le plan Gratuit, ajoute un petit badge discret en bas à droite de la page HTML : <a href="https://devwebia.mg" target="_blank" style="position:fixed;bottom:12px;right:12px;background:#1e1b4b;color:#a5b4fc;padding:6px 12px;border-radius:20px;font-size:11px;font-weight:600;text-decoration:none;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,0.2);display:flex;align-items:center;gap:6px;">⚡ vita amin'i DEVWEBIA</a>`;
+      userContext += ` Important: Sur le plan Gratuit, ajoute un petit badge discret en bas à droite de la page HTML : <div class="devwebia-badge-container" style="position:fixed;bottom:14px;right:14px;z-index:999999;display:flex;align-items:center;gap:8px;background:rgba(15, 23, 42, 0.92);backdrop-filter:blur(8px);color:#f8fafc;padding:7px 12px 7px 14px;border-radius:9999px;font-family:sans-serif;font-size:12px;font-weight:700;border:1px solid rgba(99, 102, 241, 0.4);"><a href="https://devwebia.mg" target="_blank" style="color:#ffffff;text-decoration:none;">nosoratan'i <strong style="color:#818cf8;">DEVWEBIA</strong></a><button type="button" onclick="this.parentElement.remove();" style="background:rgba(255,255,255,0.1);border:none;color:#94a3b8;border-radius:50%;width:18px;height:18px;cursor:pointer;">✕</button></div>`;
     }
 
     // Inject exact Firebase configuration for automatic client database integration

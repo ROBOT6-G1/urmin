@@ -35,7 +35,7 @@ const DEFAULT_USER: UserProfile = {
 };
 
 // Initial sample project for immediate visual preview with full admin & live sync
-const INITIAL_PROJECT_FILES: CodeFile[] = [
+export const INITIAL_PROJECT_FILES: CodeFile[] = [
   {
     name: 'index.html',
     language: 'html',

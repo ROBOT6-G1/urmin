@@ -102,22 +102,34 @@ export async function dbFetchUserProjects(userId: string, email: string): Promis
   const path = 'projects';
   try {
     const projectsRef = collection(db, 'projects');
-    
-    // Fetch both by userId and userEmail
-    const q1 = query(projectsRef, where('userId', '==', userId));
-    const snapshot1 = await getDocs(q1);
-    
-    const projectsMap = new Map<string, Project>();
-    snapshot1.forEach((doc) => {
-      projectsMap.set(doc.id, doc.data() as Project);
-    });
+    const cleanEmail = (email || '').toLowerCase().trim();
+    const isAdmin = cleanEmail === 'horlandobe@gmail.com' || cleanEmail === 'eventuelleboutique@gmail.com';
 
-    if (email) {
-      const q2 = query(projectsRef, where('userEmail', '==', email));
-      const snapshot2 = await getDocs(q2);
-      snapshot2.forEach((doc) => {
+    const projectsMap = new Map<string, Project>();
+
+    if (isAdmin) {
+      const snapshot = await getDocs(projectsRef);
+      snapshot.forEach((doc) => {
         projectsMap.set(doc.id, doc.data() as Project);
       });
+    } else {
+      // Fetch by userId
+      if (userId) {
+        const q1 = query(projectsRef, where('userId', '==', userId));
+        const snapshot1 = await getDocs(q1);
+        snapshot1.forEach((doc) => {
+          projectsMap.set(doc.id, doc.data() as Project);
+        });
+      }
+
+      // Fetch by userEmail
+      if (cleanEmail) {
+        const q2 = query(projectsRef, where('userEmail', '==', cleanEmail));
+        const snapshot2 = await getDocs(q2);
+        snapshot2.forEach((doc) => {
+          projectsMap.set(doc.id, doc.data() as Project);
+        });
+      }
     }
 
     return Array.from(projectsMap.values());
@@ -230,6 +242,50 @@ export async function dbSaveTicket(ticket: SupportTicket): Promise<void> {
     await setDoc(ticketDocRef, ticket, { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+/**
+ * Audits all users: checks users who have plan === 'pro'.
+ * If the user is NOT the main admin (horlandobe@gmail.com / eventuelleboutique@gmail.com)
+ * AND has no approved payment for a Pro subscription in Firestore,
+ * resets their plan back to 'free'.
+ */
+export async function dbAuditAndResetUnpaidProUsers(approvedPayments: PaymentRequest[]): Promise<{ auditedCount: number; resetUsers: string[] }> {
+  const path = 'users';
+  const resetUsers: string[] = [];
+  try {
+    const usersRef = collection(db, 'users');
+    const snapshot = await getDocs(usersRef);
+    const adminEmails = ['horlandobe@gmail.com', 'eventuelleboutique@gmail.com'];
+
+    // Collect emails of users with approved Pro subscriptions
+    const paidProEmails = new Set<string>();
+    approvedPayments.forEach((p) => {
+      if (p.status === 'approved' && p.isProSubscription && p.userEmail) {
+        paidProEmails.add(p.userEmail.toLowerCase().trim());
+      }
+    });
+
+    for (const docSnap of snapshot.docs) {
+      const uData = docSnap.data() as UserProfile;
+      const userEmail = (uData.email || '').toLowerCase().trim();
+      
+      const isAdmin = adminEmails.includes(userEmail);
+      const isPro = uData.plan === 'pro';
+
+      if (isPro && !isAdmin && !paidProEmails.has(userEmail)) {
+        // Revert to Free plan!
+        const userDocRef = doc(db, 'users', docSnap.id);
+        await setDoc(userDocRef, { plan: 'free' }, { merge: true });
+        resetUsers.push(userEmail || docSnap.id);
+      }
+    }
+
+    return { auditedCount: snapshot.docs.length, resetUsers };
+  } catch (error) {
+    console.warn('Pro audit warning:', error);
+    return { auditedCount: 0, resetUsers: [] };
   }
 }
 

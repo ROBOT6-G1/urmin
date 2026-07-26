@@ -162,9 +162,15 @@ export const PreviewView: React.FC<PreviewViewProps> = ({
       content = content.replace('</body>', `<script>${jsFile.content}</script></body>`);
     }
 
-    // Free plan watermark injection
-    if (user.plan === 'free' && !content.includes('vita amin\'i DEVWEBIA')) {
-      const watermarkBadge = `<a href="https://devwebia.mg" target="_blank" style="position:fixed;bottom:12px;right:12px;background:#1e1b4b;color:#a5b4fc;padding:6px 12px;border-radius:20px;font-size:11px;font-weight:600;text-decoration:none;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,0.2);display:flex;align-items:center;gap:6px;">⚡ vita amin'i DEVWEBIA</a>`;
+    // Free plan watermark badge injection (nosoratan'i DEVWEBIA + bouton X)
+    if (user.plan === 'free' && !content.includes('devwebia-badge-container')) {
+      const watermarkBadge = `<div class="devwebia-badge-container" style="position:fixed;bottom:14px;right:14px;z-index:999999;display:flex;align-items:center;gap:8px;background:rgba(15, 23, 42, 0.92);backdrop-filter:blur(8px);color:#f8fafc;padding:7px 12px 7px 14px;border-radius:9999px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;font-weight:700;border:1px solid rgba(99, 102, 241, 0.4);box-shadow:0 10px 25px -5px rgba(0,0,0,0.5), 0 0 15px rgba(99, 102, 241, 0.2);user-select:none;transition:all 0.3s ease;">
+  <a href="https://devwebia.mg" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:6px;color:#ffffff;text-decoration:none;cursor:pointer;">
+    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 8px #10b981;"></span>
+    <span>nosoratan'i <strong style="color:#818cf8;font-weight:800;">DEVWEBIA</strong></span>
+  </a>
+  <button type="button" aria-label="Fermer" onclick="event.stopPropagation(); event.preventDefault(); this.parentElement.style.display='none'; this.parentElement.remove();" style="background:rgba(255,255,255,0.12);border:none;color:#94a3b8;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:11px;font-weight:bold;margin-left:4px;padding:0;line-height:1;transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.8)';this.style.color='#ffffff';" onmouseout="this.style.background='rgba(255,255,255,0.12)';this.style.color='#94a3b8';">✕</button>
+</div>`;
       content = content.replace('</body>', `${watermarkBadge}</body>`);
     }
 

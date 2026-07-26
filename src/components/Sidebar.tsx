@@ -22,6 +22,7 @@ import {
   ExternalLink,
   Rocket,
   Info,
+  Check,
 } from 'lucide-react';
 import { Project, UserProfile } from '../types';
 
@@ -76,6 +77,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const isAdmin = user.email === 'horlandobe@gmail.com';
   const [searchHistory, setSearchHistory] = useState('');
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
 
   const filteredProjects = projects.filter((p) =>
     p.title.toLowerCase().includes(searchHistory.toLowerCase())
@@ -240,18 +242,50 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <Copy className="w-3 h-3" />
                           </button>
                         )}
-                        {onDeleteProject && projects.length > 1 && (
-                          <button
-                            onClick={() => {
-                              if (confirm(`Tena tianao hofafana ve ny site "${proj.title}"?`)) {
-                                onDeleteProject(proj.id);
-                              }
-                            }}
-                            className="text-slate-400 hover:text-rose-400 p-1 rounded hover:bg-slate-800"
-                            title="Fafana"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
+                        {onDeleteProject && (
+                          deletingProjectId === proj.id ? (
+                            <div className="flex items-center gap-1 bg-rose-950/80 border border-rose-500/50 rounded p-0.5" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  onDeleteProject(proj.id);
+                                  setDeletingProjectId(null);
+                                }}
+                                className="px-1.5 py-0.5 bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-bold rounded flex items-center gap-0.5 transition-colors"
+                                title="Hamafiso ny fafana"
+                              >
+                                <Check className="w-2.5 h-2.5" />
+                                <span>Fafana</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  setDeletingProjectId(null);
+                                }}
+                                className="p-0.5 text-slate-400 hover:text-white"
+                                title="Ajanona"
+                              >
+                                <X className="w-2.5 h-2.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                setDeletingProjectId(proj.id);
+                              }}
+                              className="text-slate-400 hover:text-rose-400 p-1 rounded hover:bg-slate-800 transition-colors"
+                              title="Fafana ny site"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )
                         )}
                       </div>
                     </div>
