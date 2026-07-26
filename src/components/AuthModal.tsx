@@ -59,8 +59,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setResetSuccessText(null);
 
     try {
-      await sendPasswordResetEmail(auth, cleanEmail);
-      setResetSuccessText(`Efa lasa amin'ny email-nao (${cleanEmail}) ny rohy (lien) hamerenana ny teny miafina. Jereo ny Boîte de réception na Spam!`);
+      const actionCodeSettings = {
+        url: window.location.origin,
+        handleCodeInApp: true,
+      };
+      await sendPasswordResetEmail(auth, cleanEmail, actionCodeSettings);
+      setResetSuccessText(`Efa nalefa amin'ny email-nao (${cleanEmail}) avy amin'i DEVWEBIA ny hafatra. Kitiho fotsiny ilay bouton "Hanova teny miafina / Reset Password" na "DEVWEBIA" ao amin'ny imailakao mba hidirana amin'ny takelaka hanovana ny mot de passe!`);
     } catch (err: any) {
       console.error('Reset Password Error:', err);
       if (err.code === 'auth/user-not-found') {

@@ -21,6 +21,7 @@ import { ProjectsHistoryModal } from './components/ProjectsHistoryModal';
 import { GoogleSeoModal } from './components/GoogleSeoModal';
 import { AboutModal } from './components/AboutModal';
 import { CustomAiKeyModal } from './components/CustomAiKeyModal';
+import { ResetPasswordModal } from './components/ResetPasswordModal';
 import { auth, onAuthStateChanged, db } from './lib/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 
@@ -116,6 +117,18 @@ export default function App() {
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isCustomAiKeyOpen, setIsCustomAiKeyOpen] = useState(false);
   const [rechargeInitialType, setRechargeInitialType] = useState<'credits' | 'ai_key_sub'>('credits');
+  const [resetOobCode, setResetOobCode] = useState<string | null>(null);
+
+  // Detect Firebase password reset code in URL query string
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.get('mode');
+    const oobCode = params.get('oobCode');
+
+    if ((mode === 'resetPassword' || mode === 'resetCode') && oobCode) {
+      setResetOobCode(oobCode);
+    }
+  }, []);
 
   // Admin Data state
   const [payments, setPayments] = useState<PaymentRequest[]>(getStoredPayments);
@@ -995,6 +1008,19 @@ export default function App() {
       </div>
 
       {/* Modals */}
+      {resetOobCode && (
+        <ResetPasswordModal
+          oobCode={resetOobCode}
+          isOpen={Boolean(resetOobCode)}
+          onClose={() => setResetOobCode(null)}
+          onSuccess={() => {
+            setResetOobCode(null);
+            window.history.replaceState({}, document.title, window.location.pathname);
+            setIsAuthOpen(true);
+          }}
+        />
+      )}
+
       <RechargeModal
         user={user}
         isOpen={isRechargeOpen}
