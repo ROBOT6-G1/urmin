@@ -100,17 +100,31 @@ function getGeminiClient(): { ai: GoogleGenAI; keyName: string } {
   return { ai, keyName };
 }
 
-async function generateWebsiteWithKeys(fullPrompt: string, systemInstruction: string, responseSchema: any): Promise<any> {
+async function generateWebsiteWithKeys(
+  fullPrompt: string,
+  systemInstruction: string,
+  responseSchema: any,
+  userCustomKeyConfig?: { apiKey: string; model?: string }
+): Promise<any> {
   await loadAdminKeysFromFirestore();
   const keysToTry: { id: string | null; key: string; name: string }[] = [];
 
-  // 1. System Default Key first
+  // 0. User's Personal Custom Gemini Key (Prioritized if provided and active)
+  if (userCustomKeyConfig && userCustomKeyConfig.apiKey && userCustomKeyConfig.apiKey.trim()) {
+    keysToTry.push({
+      id: 'user_personal_key',
+      key: userCustomKeyConfig.apiKey.trim(),
+      name: 'Clé IA Personnel Client',
+    });
+  }
+
+  // 1. System Default Key
   const defaultKey = process.env.GEMINI_API_KEY;
   if (defaultKey) {
     keysToTry.push({ id: null, key: defaultKey, name: 'System Default Key' });
   }
 
-  // 2. Add active custom keys
+  // 2. Add active custom admin keys
   const activeCustomKeys = adminGeminiKeys.filter((k) => k.isActive && !k.isQuotaExhausted);
   activeCustomKeys.forEach((k) => {
     keysToTry.push({ id: k.id, key: k.key, name: k.name });
@@ -120,12 +134,12 @@ async function generateWebsiteWithKeys(fullPrompt: string, systemInstruction: st
     throw new Error('Tsy misy API Key Gemini azo ampiasaina amin\'izao fotoana izao.');
   }
 
-  const modelsToTry = [
+  const baseModelsToTry = [
+    'gemini-2.5-flash',
     'gemini-3.6-flash',
     'gemini-3.5-flash',
-    'gemini-3.5-flash-lite',
-    'gemini-3.1-flash-lite',
-    'gemini-3.1-pro-preview'
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
   ];
   let lastError: any = null;
 
@@ -139,7 +153,12 @@ async function generateWebsiteWithKeys(fullPrompt: string, systemInstruction: st
       },
     });
 
-    for (const modelName of modelsToTry) {
+    let activeModelsToTry = [...baseModelsToTry];
+    if (keyConfig.id === 'user_personal_key' && userCustomKeyConfig?.model) {
+      activeModelsToTry = [userCustomKeyConfig.model, ...baseModelsToTry.filter((m) => m !== userCustomKeyConfig.model)];
+    }
+
+    for (const modelName of activeModelsToTry) {
       let attempts = 0;
       const maxAttempts = 3;
       let shouldSkipKey = false;
@@ -480,7 +499,17 @@ app.get('/api/health', (req, res) => {
 // AI Website Generation Endpoint
 app.post('/api/generate-website', async (req, res) => {
   try {
-    const { prompt, existingFiles, userPlan, customDomain, clientFirebase, whatsappNumber } = req.body;
+    const {
+      prompt,
+      existingFiles,
+      userPlan,
+      customDomain,
+      clientFirebase,
+      whatsappNumber,
+      customGeminiApiKey,
+      customGeminiModel,
+      aiKeySubActive,
+    } = req.body;
 
     if (!prompt) {
       return res.status(400).json({ error: 'Prompt required' });
@@ -559,7 +588,20 @@ app.post('/api/generate-website', async (req, res) => {
       required: ['explanation', 'files'],
     };
 
-    const response = await generateWebsiteWithKeys(fullPrompt, SYSTEM_WEB_GENERATOR_PROMPT, responseSchema);
+    let userCustomKeyConfig: { apiKey: string; model?: string } | undefined = undefined;
+    if (customGeminiApiKey && typeof customGeminiApiKey === 'string' && customGeminiApiKey.trim() && aiKeySubActive) {
+      userCustomKeyConfig = {
+        apiKey: customGeminiApiKey.trim(),
+        model: customGeminiModel || 'gemini-2.5-flash',
+      };
+    }
+
+    const response = await generateWebsiteWithKeys(
+      fullPrompt,
+      SYSTEM_WEB_GENERATOR_PROMPT,
+      responseSchema,
+      userCustomKeyConfig
+    );
 
     const responseText = response.text || '';
     const parsedResult = parseGeminiJsonResponse(responseText);

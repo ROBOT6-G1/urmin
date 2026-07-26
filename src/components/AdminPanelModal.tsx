@@ -42,6 +42,7 @@ interface AdminPanelModalProps {
   onSelectProjectAndPreview?: (projectId: string) => void;
   onDeleteProject?: (projectId: string) => void;
   onRunAuditPro?: () => Promise<{ auditedCount: number; resetUsers: string[] }>;
+  onToggleAiKeySub?: (userId: string, active: boolean) => void;
 }
 
 export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
@@ -63,6 +64,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   onSelectProjectAndPreview,
   onDeleteProject,
   onRunAuditPro,
+  onToggleAiKeySub,
 }) => {
   const [activeTab, setActiveTab] = useState<'payments' | 'users' | 'support' | 'keys'>('payments');
   const [isAuditing, setIsAuditing] = useState(false);
@@ -249,7 +251,13 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       <div>
                         <div className="text-[10px] text-slate-500">Crédits / Offre :</div>
                         <div className="font-bold text-indigo-300">
-                          {p.creditsRequested} Crédits
+                          {p.isAiKeySubscription ? (
+                            <span className="text-amber-400 font-extrabold">Abonnement Clé IA (10k/m)</span>
+                          ) : p.isProSubscription ? (
+                            <span className="text-amber-400 font-extrabold">Plan Pro (5k/m)</span>
+                          ) : (
+                            `${p.creditsRequested} Crédits`
+                          )}
                         </div>
                       </div>
                       <div>
@@ -383,6 +391,19 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                         >
                           Changer Plan
                         </button>
+                        {onToggleAiKeySub && (
+                          <button
+                            onClick={() => onToggleAiKeySub(u.id, !u.aiKeySubActive)}
+                            className={`px-3 py-1.5 rounded-xl border font-bold transition-all text-xs flex items-center gap-1 ${
+                              u.aiKeySubActive
+                                ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                                : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            <Key className="w-3.5 h-3.5" />
+                            <span>{u.aiKeySubActive ? 'Clé IA Active' : 'Activer Clé IA'}</span>
+                          </button>
+                        )}
                       </div>
                     </div>
 

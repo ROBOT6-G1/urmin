@@ -23,6 +23,7 @@ import {
   Rocket,
   Info,
   Check,
+  Key,
 } from 'lucide-react';
 import { Project, UserProfile } from '../types';
 
@@ -35,6 +36,7 @@ interface SidebarProps {
   onSelectProject: (projectId: string) => void;
   onNewProject: () => void;
   onOpenRecharge: () => void;
+  onOpenCustomAiKey?: () => void;
   onOpenConnectedApps: () => void;
   onOpenFaq: () => void;
   onOpenSupport: () => void;
@@ -60,6 +62,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectProject,
   onNewProject,
   onOpenRecharge,
+  onOpenCustomAiKey,
   onOpenConnectedApps,
   onOpenFaq,
   onOpenSupport,
@@ -300,6 +303,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="px-3 mb-2 text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
               Fitaovana & Option
             </div>
+
+            {/* 👉 Ma clé IA */}
+            {onOpenCustomAiKey && (
+              <button
+                onClick={() => {
+                  onOpenCustomAiKey();
+                  onClose();
+                }}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent hover:border-slate-700 transition-all group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 group-hover:bg-amber-500/20 transition-colors">
+                    <Key className="w-4 h-4" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-bold flex items-center gap-1.5">
+                      <span>Ma Clé IA</span>
+                      <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded font-black uppercase">
+                        Illimité
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-500 truncate max-w-[130px]">API Gemini Personnel</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  {user.useCustomKey && user.aiKeySubActive ? (
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" title="Clé IA Personnel Mavitrika" />
+                  ) : (
+                    <span className="text-[10px] text-slate-500 font-mono">10k/mois</span>
+                  )}
+                </div>
+              </button>
+            )}
 
             {/* 👉 Bouton recharge */}
             <button

@@ -36,6 +36,11 @@ export interface UserProfile {
   customDomain?: string;
   customDomainStatus?: 'pending' | 'active' | 'failed';
   whatsappNumber?: string;
+  customGeminiApiKey?: string;
+  useCustomKey?: boolean;
+  customGeminiModel?: string;
+  aiKeySubActive?: boolean;
+  aiKeySubExpiresAt?: string;
   isBanned?: boolean;
   createdAt: string;
 }
@@ -90,6 +95,7 @@ export interface PaymentRequest {
   amountAr: number;
   creditsRequested: number;
   isProSubscription?: boolean;
+  isAiKeySubscription?: boolean;
   provider: 'mvola' | 'orange_money' | 'airtel_money';
   senderPhone: string;
   transactionRef: string;

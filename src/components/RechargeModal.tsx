@@ -15,6 +15,7 @@ interface RechargeModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmitPayment: (payment: Omit<PaymentRequest, 'id' | 'status' | 'createdAt'>) => void;
+  initialType?: 'credits' | 'ai_key_sub';
 }
 
 export const RechargeModal: React.FC<RechargeModalProps> = ({
@@ -22,7 +23,9 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
   isOpen,
   onClose,
   onSubmitPayment,
+  initialType = 'credits',
 }) => {
+  const [paymentType, setPaymentType] = useState<'credits' | 'ai_key_sub'>(initialType);
   const [senderPhone, setSenderPhone] = useState<string>('');
   const [transactionRef, setTransactionRef] = useState<string>('');
   const [submittedSuccess, setSubmittedSuccess] = useState<boolean>(false);
@@ -30,7 +33,7 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
   if (!isOpen) return null;
 
   const currentPrice = 10000;
-  const creditsAmount = 40;
+  const creditsAmount = paymentType === 'credits' ? 40 : 0;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +45,7 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
       amountAr: currentPrice,
       creditsRequested: creditsAmount,
       isProSubscription: false,
+      isAiKeySubscription: paymentType === 'ai_key_sub',
       provider: 'orange_money',
       senderPhone,
       transactionRef,
@@ -76,22 +80,35 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
           </p>
         </div>
 
-        {/* Single Offer Card */}
-        <div className="bg-gradient-to-br from-orange-950/40 via-slate-950 to-slate-900 p-5 rounded-2xl border border-orange-500/40 text-center space-y-3 relative overflow-hidden">
-          <div className="absolute -top-10 -right-10 w-28 h-28 bg-orange-500/10 rounded-full blur-xl pointer-events-none"></div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-500/20 text-orange-300 text-xs font-extrabold uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>Paiement Unique</span>
-          </div>
+        {/* Offer Selection */}
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <button
+            type="button"
+            onClick={() => setPaymentType('credits')}
+            className={`p-3.5 rounded-2xl border text-left transition-all ${
+              paymentType === 'credits'
+                ? 'bg-orange-950/60 border-orange-500 text-white shadow-lg shadow-orange-500/10'
+                : 'bg-slate-950/40 border-slate-800 text-slate-400 hover:border-slate-700'
+            }`}
+          >
+            <div className="font-extrabold text-sm text-orange-400">10 000 Ar</div>
+            <div className="font-bold text-white text-xs mt-0.5">= 40 Crédits IA</div>
+            <div className="text-[10px] text-slate-400 mt-1">Paiement unique ahazoana 40 crédits.</div>
+          </button>
 
-          <div className="space-y-1">
-            <div className="text-3xl font-black text-white">10 000 Ar</div>
-            <div className="text-lg font-bold text-orange-400">= 40 Crédits IA</div>
-          </div>
-
-          <p className="text-slate-300 text-xs leading-relaxed max-w-xs mx-auto">
-            Hahazoana crédit 40 afahana manorina sy mampiditra safidy (options) maro amin'ny tranokala mazava tsara.
-          </p>
+          <button
+            type="button"
+            onClick={() => setPaymentType('ai_key_sub')}
+            className={`p-3.5 rounded-2xl border text-left transition-all ${
+              paymentType === 'ai_key_sub'
+                ? 'bg-amber-950/60 border-amber-500 text-white shadow-lg shadow-amber-500/10'
+                : 'bg-slate-950/40 border-slate-800 text-slate-400 hover:border-slate-700'
+            }`}
+          >
+            <div className="font-extrabold text-sm text-amber-400">10 000 Ar / mois</div>
+            <div className="font-bold text-white text-xs mt-0.5">Abonnement Clé IA</div>
+            <div className="text-[10px] text-slate-400 mt-1">Mampiasa Clé Gemini Personnel (Illimité).</div>
+          </button>
         </div>
 
         {/* Official Payment Number Box - Orange Money ONLY */}

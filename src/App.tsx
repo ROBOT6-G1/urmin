@@ -20,6 +20,7 @@ import { GuideModal } from './components/GuideModal';
 import { ProjectsHistoryModal } from './components/ProjectsHistoryModal';
 import { GoogleSeoModal } from './components/GoogleSeoModal';
 import { AboutModal } from './components/AboutModal';
+import { CustomAiKeyModal } from './components/CustomAiKeyModal';
 import { auth, onAuthStateChanged, db } from './lib/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 
@@ -113,6 +114,8 @@ export default function App() {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isGoogleSeoOpen, setIsGoogleSeoOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const [isCustomAiKeyOpen, setIsCustomAiKeyOpen] = useState(false);
+  const [rechargeInitialType, setRechargeInitialType] = useState<'credits' | 'ai_key_sub'>('credits');
 
   // Admin Data state
   const [payments, setPayments] = useState<PaymentRequest[]>(getStoredPayments);
@@ -447,7 +450,10 @@ export default function App() {
 
   // AI Web Generation handler
   const handleSendMessage = async (text: string) => {
-    if (user.credits <= 0) {
+    const isUsingCustomKey = Boolean(user.useCustomKey && user.aiKeySubActive && user.customGeminiApiKey);
+
+    if (!isUsingCustomKey && user.credits <= 0) {
+      setRechargeInitialType('credits');
       setIsRechargeOpen(true);
       return;
     }
@@ -479,15 +485,19 @@ export default function App() {
             databaseId: user.firebaseDatabaseId || '(default)',
           } : null,
           whatsappNumber: user.whatsappNumber || null,
+          customGeminiApiKey: isUsingCustomKey ? user.customGeminiApiKey : null,
+          customGeminiModel: user.customGeminiModel || 'gemini-2.5-flash',
+          aiKeySubActive: Boolean(user.aiKeySubActive),
         }),
       });
 
       const data = await res.json();
 
       if (data.success) {
-        // Deduct 1 credit using functional state update and immediately persist
+        // Deduct credit (0 if using custom key, 1 if using platform credits)
+        const creditsToDeduct = isUsingCustomKey ? 0 : 1;
         setUser((prev) => {
-          const newCredits = Math.max(0, prev.credits - 1);
+          const newCredits = Math.max(0, prev.credits - creditsToDeduct);
           const updated = { ...prev, credits: newCredits };
           saveUser(updated);
           if (updated.id && updated.id !== 'usr_client_default') {
@@ -642,14 +652,24 @@ export default function App() {
     getDoc(userRef).then((docSnap) => {
       if (docSnap.exists()) {
         const targetUser = docSnap.data();
-        if (p.isProSubscription) {
+        if (p.isAiKeySubscription) {
+          const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+          setDoc(userRef, { aiKeySubActive: true, aiKeySubExpiresAt: expiresAt }, { merge: true }).catch(console.error);
+          if (p.userId === user.id) {
+            setUser((prev) => ({
+              ...prev,
+              aiKeySubActive: true,
+              aiKeySubExpiresAt: expiresAt,
+            }));
+          }
+        } else if (p.isProSubscription) {
           setDoc(userRef, { plan: 'pro', credits: (targetUser.credits || 0) + 15 }, { merge: true }).catch(console.error);
         } else {
           setDoc(userRef, { credits: (targetUser.credits || 0) + p.creditsRequested }, { merge: true }).catch(console.error);
         }
         
-        // Also update local state if the admin is somehow approving their own payment
-        if (p.userId === user.id) {
+        // Also update local state if the admin is approving their own payment
+        if (p.userId === user.id && !p.isAiKeySubscription) {
           setUser((prev) => ({
             ...prev,
             plan: p.isProSubscription ? 'pro' : prev.plan,
@@ -671,6 +691,40 @@ export default function App() {
         return item;
       })
     );
+  };
+
+  const handleToggleAiKeySub = (targetUserId: string, active: boolean) => {
+    const expiresAt = active ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() : undefined;
+    const userRef = doc(db, 'users', targetUserId);
+    setDoc(userRef, { aiKeySubActive: active, aiKeySubExpiresAt: expiresAt }, { merge: true }).catch(console.error);
+
+    setDbUsers((prev) =>
+      prev.map((u) => (u.id === targetUserId ? { ...u, aiKeySubActive: active, aiKeySubExpiresAt: expiresAt } : u))
+    );
+
+    if (user.id === targetUserId) {
+      setUser((prev) => {
+        const updated = { ...prev, aiKeySubActive: active, aiKeySubExpiresAt: expiresAt };
+        saveUser(updated);
+        return updated;
+      });
+    }
+  };
+
+  const handleUpdateCustomAiKeySettings = (key: string, model: string, useKey: boolean) => {
+    setUser((prev) => {
+      const updated = {
+        ...prev,
+        customGeminiApiKey: key,
+        customGeminiModel: model,
+        useCustomKey: useKey,
+      };
+      saveUser(updated);
+      if (updated.id && updated.id !== 'usr_client_default') {
+        dbSaveUser(updated).catch(console.error);
+      }
+      return updated;
+    });
   };
 
   const handleUpdateUserCredits = (userId: string, newCredits: number) => {
@@ -888,7 +942,11 @@ export default function App() {
           onClose={() => setIsSidebarOpen(false)}
           onSelectProject={handleSelectProject}
           onNewProject={handleNewProject}
-          onOpenRecharge={() => setIsRechargeOpen(true)}
+          onOpenRecharge={() => {
+            setRechargeInitialType('credits');
+            setIsRechargeOpen(true);
+          }}
+          onOpenCustomAiKey={() => setIsCustomAiKeyOpen(true)}
           onOpenConnectedApps={() => setIsConnectedAppsOpen(true)}
           onOpenFaq={() => setIsFaqOpen(true)}
           onOpenSupport={() => setIsSupportOpen(true)}
@@ -942,6 +1000,19 @@ export default function App() {
         isOpen={isRechargeOpen}
         onClose={() => setIsRechargeOpen(false)}
         onSubmitPayment={handleSubmitPayment}
+        initialType={rechargeInitialType}
+      />
+
+      <CustomAiKeyModal
+        user={user}
+        isOpen={isCustomAiKeyOpen}
+        onClose={() => setIsCustomAiKeyOpen(false)}
+        onUpdateUserKey={(key, useKey, model) => handleUpdateCustomAiKeySettings(key, model, useKey)}
+        onOpenRechargeForAiKey={() => {
+          setIsCustomAiKeyOpen(false);
+          setRechargeInitialType('ai_key_sub');
+          setIsRechargeOpen(true);
+        }}
       />
 
       <ConnectedAppsModal
@@ -1031,6 +1102,7 @@ export default function App() {
         }}
         onDeleteProject={handleDeleteProject}
         onRunAuditPro={handleRunAuditPro}
+        onToggleAiKeySub={handleToggleAiKeySub}
       />
 
       <ProjectsHistoryModal
