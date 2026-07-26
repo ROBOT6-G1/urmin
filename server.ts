@@ -390,38 +390,33 @@ Ta mission est double :
         * OPTION 7 : Équipe / Partenaires / Intervenants.
         * OPTION 8 : FAQ (Foire Aux Questions avec au moins 4 accordéons interactifs Clic/Toggle en JS).
         * OPTION 9 : Blog / Actualités / Articles récents (au moins 3 articles avec cartes et dates).
-        * OPTION 10 : Contact / Formulaire interactif + Carte Google Maps iframe + Bouton WhatsApp direct + Informations de contact.
+        * OPTION 10 : Contact / Formulaire interactif + Carte Google Maps iframe + Bouton WhatsApp direct + Push Notifications.
 
-   B) **RÈGLE ABSOLUE POUR LES IMAGES ET SARY PAR DÉFAUT (TOUTES LES IMAGES DOIVENT FONCTIONNER)** :
+   B) **SYSTÈME PUSH NOTIFICATION WHATSAPP DIRECT AUTOMATIQUE (SANS API PAYANTE)** :
+      - Toute commande e-commerce, réservation ou message de formulaire de contact DOIT impérativement générer un bouton et une redirection automatique vers WhatsApp ('https://wa.me/NUMERO?text=MESSAGE_ENCODE' ou 'https://api.whatsapp.com/send?phone=NUMERO&text=MESSAGE_ENCODE').
+      - Le message WhatsApp pré-rempli doit contenir un récapitulatif ultra-propre et structuré : Nom du client, Téléphone, Adresse, Liste des produits commandés avec quantité et prix total (ex: "🛒 COMMANDE NOUVELLE - Site Web:\n- Produit A x2 (20 000 Ar)\nTOTAL: 40 000 Ar\nClient: Jean (+26134000000)").
+      - Ajoute également un déclencheur de Web Push Notification ('Notification.requestPermission()' et 'new Notification(...)') en JavaScript navigateur lorsque le client valide une commande ou un formulaire pour alerter instantanément le gérant du site !
+
+   C) **TRADUCTEUR AUTOMATIQUE MULTILINGUE COMPLET (🇲🇬 MG / 🇫🇷 FR / 🇬🇧 EN / 🇩🇪 DE)** :
+      - Chaque site généré DOIT obligatoirement inclure un Sélecteur de Langue (Language Switcher) interactif positionné en haut dans le Navbar ou sous forme de Widget Flottant avec drapeaux (🇲🇬 Malagasy, 🇫🇷 Français, 🇬🇧 English, 🇩🇪 Deutsch).
+      - Intègre le script officiel Google Translate ('//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit') et une fonction JS 'googleTranslateElementInit' pour permettre aux visiteurs du site de traduire instantanément tout le contenu du site dans la langue de leur choix en 1 clic !
+
+   D) **RÈGLE ABSOLUE POUR LES IMAGES ET SARY PAR DÉFAUT (TOUTES LES IMAGES DOIVENT FONCTIONNER)** :
       - N'utilise JAMAIS de chemins relatifs locaux inexistants comme 'images/hero.jpg', 'hero.png', 'product1.jpg' !
       - N'utilise JAMAIS de services obsolètes comme 'source.unsplash.com' ou 'via.placeholder.com' !
       - Utilise UNIQUEMENT de vraies URLs Unsplash HD valides sous la forme 'https://images.unsplash.com/photo-...' avec des paramètres de recadrage (ex: '?auto=format&fit=crop&w=800&q=80').
-      - Exemples d'URLs Unsplash fonctionnelles à utiliser par catégorie :
-        * E-Commerce / Produits : 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=800&q=80', 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=800&q=80', 'https://images.unsplash.com/photo-1587049352847-4a222e784d38?auto=format&fit=crop&w=800&q=80'
-        * Hôtel / Restaurant / Food : 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80', 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80', 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80'
-        * Entreprise / Vitrine : 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80', 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=800&q=80'
-        * École / Formation : 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=800&q=80', 'https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=800&q=80'
-        * Médical / Santé : 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=800&q=80', 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&w=800&q=80'
-        * Immobilier : 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80', 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80'
-        * Voyage : 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=800&q=80', 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80'
-        * Sport / Fitness : 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=800&q=80', 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=800&q=80'
-        * Madagascar / Vanilla / Local : 'https://images.unsplash.com/photo-1590736704728-f4730bb30770?auto=format&fit=crop&w=800&q=80'
       - AJOUT OBLIGATOIRE DE L'ATTRIBUT ERREUR DANS TOUS LES <img> HTML :
         Chaque balise <img> générée dans le code HTML ou injectée via JS DOIT inclure le fallback suivant :
         onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=800&q=80';"
 
-   C) **DIVERSITÉ DES MODÈLES ET ADAPTATION DU DESIGN SELON LA CATÉGORIE** :
-      - N'utilise JAMAIS le même design générique pour tous les sites. Adapte visuellement et fonctionnellement la structure selon le type de site (E-commerce, Hôtel, École, Médical, Immobilier, Fitness, Avocat, Artisan, Association, Voyage, Portfolio, Vitrine).
+   D) **DIVERSITÉ DES MODÈLES ET ADAPTATION DU DESIGN SELON LA CATÉGORIE** :
+      - N'utilise JAMAIS le même design générique pour tous les sites. Adapte visuellement et fonctionnellement la structure selon le type de site.
 
-   D) **ARCHITECTURE MULTI-FICHIERS COMPLÈTE ET ESPACE ADMIN OPÉRATIONNEL** :
+   E) **ARCHITECTURE MULTI-FICHIERS COMPLÈTE ET ESPACE ADMIN OPÉRATIONNEL** :
       - "index.html" : Page d'accueil principale regroupant dynamiquement les 10 SECTIONS.
       - "apropos.html", "services.html", "realisations.html", "faq.html", "blog.html", "contact.html", "reservation.html".
-      - "admin.html" & "admin.js" : Panneau Admin complet avec authentification (mot de passe "1234"), édition des textes et des URLs d'images pour TOUTES les 10 options, uploader de fichiers image Canvas (<150KB), liste de messages/réservations et sauvegarde Firestore / LocalStorage.
+      - "admin.html" & "admin.js" : Panneau Admin complet avec authentification (mot de passe "1234"), édition des textes et des URLs d'images pour TOUTES les 10 options, uploader de fichiers image Canvas (<150KB), liste de messages/commandes/réservations et sauvegarde Firestore / LocalStorage.
       - "app.js", "firebase-config.js", "style.css".
-      - Dans 'app.js' et 'admin.js', assure-toi que si une image est vide ou échoue, elle bascule automatiquement vers 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=800&q=80'.
-
-   E) **VÉRIFICATION GOOGLE SEARCH CONSOLE / SEO** :
-      - Si l'utilisateur demande d'ajouter ou d'injecter une balise Google SEO / Google Search Console (ex: '<meta name="google-site-verification" content="..." />'), tu dois ABSOLUMENT l'insérer proprement dans la balise '<head>' du fichier 'index.html' existant du site. Conserve TOUS les autres fichiers du site à l'identique.
 `;
 
 function parseGeminiJsonResponse(rawText: string) {
@@ -479,7 +474,7 @@ app.get('/api/health', (req, res) => {
 // AI Website Generation Endpoint
 app.post('/api/generate-website', async (req, res) => {
   try {
-    const { prompt, existingFiles, userPlan, customDomain } = req.body;
+    const { prompt, existingFiles, userPlan, customDomain, clientFirebase, whatsappNumber } = req.body;
 
     if (!prompt) {
       return res.status(400).json({ error: 'Prompt required' });
@@ -487,37 +482,38 @@ app.post('/api/generate-website', async (req, res) => {
 
     let userContext = `Plan utilisateur : ${userPlan || 'free'}.`;
     if (userPlan === 'free') {
-      userContext += ` Important: Sur le plan Gratuit, ajoute un petit badge discret en bas à droite de la page HTML : <div class="devwebia-badge-container" style="position:fixed;bottom:14px;right:14px;z-index:999999;display:flex;align-items:center;gap:8px;background:rgba(15, 23, 42, 0.92);backdrop-filter:blur(8px);color:#f8fafc;padding:7px 12px 7px 14px;border-radius:9999px;font-family:sans-serif;font-size:12px;font-weight:700;border:1px solid rgba(99, 102, 241, 0.4);"><a href="https://devwebia.mg" target="_blank" style="color:#ffffff;text-decoration:none;">nosoratan'i <strong style="color:#818cf8;">DEVWEBIA</strong></a><button type="button" onclick="this.parentElement.remove();" style="background:rgba(255,255,255,0.1);border:none;color:#94a3b8;border-radius:50%;width:18px;height:18px;cursor:pointer;">✕</button></div>`;
+      userContext += ` Important: Sur le plan Gratuit, ajoute un petit badge discret en bas à droite de la page HTML : <div class="devwebia-badge-container" style="position:fixed;bottom:14px;right:14px;z-index:999999;display:flex;align-items:center;gap:8px;background:rgba(15, 23, 42, 0.92);backdrop-filter:blur(8px);color:#f8fafc;padding:7px 12px 7px 14px;border-radius:9999px;font-family:sans-serif;font-size:12px;font-weight:700;border:1px solid rgba(99, 102, 241, 0.4);"><a href="https://deviaweb-aezo.onrender.com" target="_blank" style="color:#ffffff;text-decoration:none;">Vita amin'i <strong style="color:#818cf8;">DEVWEBIA</strong></a><button type="button" onclick="this.parentElement.remove();" style="background:rgba(255,255,255,0.1);border:none;color:#94a3b8;border-radius:50%;width:18px;height:18px;cursor:pointer;">✕</button></div>`;
     }
 
-    // Inject exact Firebase configuration for automatic client database integration
-    try {
-      let fbCfg: any = null;
-      const cfgPath = path.join(process.cwd(), 'firebase-applet-config.json');
-      if (fs.existsSync(cfgPath)) {
-        fbCfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
-      } else if (process.env.FIREBASE_CONFIG) {
-        try {
-          fbCfg = JSON.parse(process.env.FIREBASE_CONFIG);
-        } catch (pe) {
-          console.warn('[DEVWEBIA] Failed parse FIREBASE_CONFIG in generator endpoint', pe);
-        }
-      }
+    // WhatsApp Push Order configuration
+    if (whatsappNumber && whatsappNumber.trim()) {
+      const cleanNum = whatsappNumber.trim().replace(/[^0-9]/g, '');
+      userContext += `\n\n[NUMÉRO WHATSAPP DU PROPRIÉTAIRE DES COMMANDES] :\n`;
+      userContext += `Numéro WhatsApp officiel du gérant : '${cleanNum}' (Format international wa.me/${cleanNum}).\n`;
+      userContext += `Intègre ce numéro dans tous les formulaires d'achat, panier e-commerce et réservation pour envoyer automatiquement les récapitulatifs de commande directement sur son WhatsApp via wa.me avec encodage URL !`;
+    } else {
+      userContext += `\n\n[NUMÉRO WHATSAPP PAR DÉFAUT SI NON RENSEIGNÉ] :\n`;
+      userContext += `Utilise le numéro WhatsApp générique par défaut '261340000000' dans les liens wa.me pour la validation des commandes et demandes clients.`;
+    }
 
-      if (fbCfg) {
-        userContext += `\n\n[CONFIGURATION FIREBASE CLIENT OBLIGATOIRE À EMBEDDED DANS LE SITE] :\n`;
-        userContext += `const firebaseConfig = {\n`;
-        userContext += `  apiKey: "${fbCfg.apiKey}",\n`;
-        userContext += `  authDomain: "${fbCfg.authDomain}",\n`;
-        userContext += `  projectId: "${fbCfg.projectId}",\n`;
-        userContext += `  storageBucket: "${fbCfg.storageBucket}",\n`;
-        userContext += `  messagingSenderId: "${fbCfg.messagingSenderId}",\n`;
-        userContext += `  appId: "${fbCfg.appId}"\n`;
-        userContext += `};\n`;
-        userContext += `Intègre AUTOMATIQUEMENT cette configuration et la sauvegarde Firestore dans le code JavaScript du site généré.`;
-      }
-    } catch (e) {
-      console.warn('Could not read firebase-applet-config.json for generation context', e);
+    // Handle Client Firebase Database injection (ONLY if provided by client)
+    if (clientFirebase && clientFirebase.apiKey && clientFirebase.projectId) {
+      userContext += `\n\n[CONFIGURATION FIREBASE CLIENT UTILISATEUR MANOKANA] :\n`;
+      userContext += `Le client a configuré sa propre base de données Firebase. Tu DOIS intégrer cette configuration Firebase client dans le fichier 'firebase-config.js' et synchroniser le site avec la Firestore du client :\n`;
+      userContext += `const firebaseConfig = {\n`;
+      userContext += `  apiKey: "${clientFirebase.apiKey}",\n`;
+      userContext += `  authDomain: "${clientFirebase.authDomain || clientFirebase.projectId + '.firebaseapp.com'}",\n`;
+      userContext += `  projectId: "${clientFirebase.projectId}",\n`;
+      userContext += `  storageBucket: "${clientFirebase.storageBucket || clientFirebase.projectId + '.appspot.com'}",\n`;
+      userContext += `  messagingSenderId: "${clientFirebase.messagingSenderId || '000000000'}",\n`;
+      userContext += `  appId: "${clientFirebase.appId || '1:000000000:web:clientapp'}"\n`;
+      userContext += `};\n`;
+      userContext += `Intègre cette configuration dans 'firebase-config.js' pour la sauvegarde Firestore du client.`;
+    } else {
+      userContext += `\n\n[INSTRUCTION BASE DE DONNÉES - LOCALSTORAGE UNIQUEMENT] :\n`;
+      userContext += `Le client N'A PAS encore configuré sa propre base de données Firebase dans ses paramètres ("Apps Connectées / Firebase").\n`;
+      userContext += `INTERDICTION STRICTE : N'utilise AUCUNE clé Firebase d'administration ni aucune base de données externe. N'utilise PAS la base de données de l'admin !\n`;
+      userContext += `Tu dois utiliser STRICTEMENT 'localStorage' (Local Storage) en JavaScript pure pour la sauvegarde des produits, messages, formulaires, réservations et modifications de l'Espace Admin dans 'app.js' et 'admin.js'. Dans 'firebase-config.js', indique simplement un commentaire disant que le stockage est en LocalStorage et que le client peut connecter son propre Firebase dans les paramètres s'il le souhaite.`;
     }
 
     let codeContext = '';

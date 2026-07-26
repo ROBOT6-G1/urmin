@@ -10,7 +10,13 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
+import {
+  initializeFirestore,
+  getFirestore,
+  doc,
+  setDoc,
+  getDoc
+} from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfigData from '../../firebase-applet-config.json';
 
@@ -31,7 +37,17 @@ export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || '(default)');
+// Use initializeFirestore with auto-detect long polling to prevent WebChannel stream 10s timeouts in iFrames / proxy environments
+let firestoreInstance;
+try {
+  firestoreInstance = initializeFirestore(app, {
+    experimentalAutoDetectLongPolling: true,
+  }, firebaseConfig.firestoreDatabaseId || '(default)');
+} catch {
+  firestoreInstance = getFirestore(app, firebaseConfig.firestoreDatabaseId || '(default)');
+}
+
+export const db = firestoreInstance;
 export const storage = getStorage(app);
 
 export const signInWithGoogle = async () => {

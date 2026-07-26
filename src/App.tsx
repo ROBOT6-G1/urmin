@@ -46,6 +46,7 @@ import {
   getStoredGeminiKeys,
   saveGeminiKeys,
   INITIAL_PROJECT_FILES,
+  INITIAL_PROJECT,
 } from './services/storage';
 import { detectPendingReferralCode, applyReferralCode } from './services/referralService';
 import {
@@ -117,6 +118,7 @@ export default function App() {
   const [payments, setPayments] = useState<PaymentRequest[]>(getStoredPayments);
   const [tickets, setTickets] = useState<SupportTicket[]>(getStoredTickets);
   const [geminiKeys, setGeminiKeys] = useState<GeminiApiKey[]>(getStoredGeminiKeys);
+  const [dbUsers, setDbUsers] = useState<UserProfile[]>([]);
 
   // Sync Gemini Keys to LocalStorage and Backend Server
   useEffect(() => {
@@ -469,6 +471,14 @@ export default function App() {
           existingFiles: currentProject.files,
           userPlan: user.plan,
           customDomain: user.customDomain,
+          clientFirebase: (user.firebaseConnected && user.firebaseApiKey && user.firebaseProjectId) ? {
+            apiKey: user.firebaseApiKey,
+            authDomain: user.firebaseAuthDomain || `${user.firebaseProjectId}.firebaseapp.com`,
+            projectId: user.firebaseProjectId,
+            storageBucket: user.firebaseStorageBucket || `${user.firebaseProjectId}.appspot.com`,
+            databaseId: user.firebaseDatabaseId || '(default)',
+          } : null,
+          whatsappNumber: user.whatsappNumber || null,
         }),
       });
 
@@ -682,7 +692,7 @@ export default function App() {
   const handleRunAuditPro = async () => {
     const res = await dbAuditAndResetUnpaidProUsers(payments);
     const refreshedUsers = await dbFetchAllUsers();
-    setAllUsersList(refreshedUsers);
+    setDbUsers(refreshedUsers);
     return res;
   };
 
@@ -751,13 +761,14 @@ export default function App() {
     createdAt: new Date().toISOString(),
   };
 
-  const allUsersList = Array.from(
-    new Map([
-      [user.email.toLowerCase(), user],
-      [adminUser.email.toLowerCase(), adminUser],
-      [defaultClientUser.email.toLowerCase(), defaultClientUser],
-    ]).values()
-  );
+  const allUsersList = useMemo(() => {
+    const map = new Map<string, UserProfile>();
+    dbUsers.forEach((u) => { if (u.email) map.set(u.email.toLowerCase(), u); });
+    if (user?.email) map.set(user.email.toLowerCase(), user);
+    map.set(adminUser.email.toLowerCase(), adminUser);
+    map.set(defaultClientUser.email.toLowerCase(), defaultClientUser);
+    return Array.from(map.values());
+  }, [dbUsers, user, adminUser, defaultClientUser]);
 
   const handleSwitchUser = (email: string, name?: string) => {
     const isPro = email === 'horlandobe@gmail.com';

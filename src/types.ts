@@ -35,6 +35,7 @@ export interface UserProfile {
   firebaseStorageBucket?: string;
   customDomain?: string;
   customDomainStatus?: 'pending' | 'active' | 'failed';
+  whatsappNumber?: string;
   isBanned?: boolean;
   createdAt: string;
 }

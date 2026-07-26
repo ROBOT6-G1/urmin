@@ -501,21 +501,25 @@ export const INITIAL_PROJECT_FILES: CodeFile[] = [
   {
     name: 'firebase-config.js',
     language: 'javascript',
-    content: `// Configuration client Firebase auto-générée pour DEVWEBIA
+    content: `// Configuration client Firebase pour DEVWEBIA
+// Remarque: Par défaut, ce site utilise LocalStorage pour sauvegarder les données.
+// Si vous connectez votre propre Firebase dans les paramètres DEVWEBIA (Apps Connectées),
+// l'IA générera automatiquement vos clés réelles ici.
+
 const firebaseConfig = {
-  apiKey: "AIzaSyDevWebIA_Sample_ApiKey_DemoOnly",
-  authDomain: "devwebia-app.firebaseapp.com",
-  projectId: "devwebia-app",
-  storageBucket: "devwebia-app.appspot.com",
-  messagingSenderId: "81536985877",
-  appId: "1:81536985877:web:devwebiasample1"
+  apiKey: "",
+  authDomain: "",
+  projectId: "",
+  storageBucket: "",
+  messagingSenderId: "",
+  appId: ""
 };
 
-// Initialisation sécurisée
-if (typeof firebase !== 'undefined' && !firebase.apps.length) {
+// Initialisation si la configuration est renseignée
+if (firebaseConfig.apiKey && typeof firebase !== 'undefined' && !firebase.apps.length) {
   try {
     firebase.initializeApp(firebaseConfig);
-    console.log("Firebase connecté avec succès.");
+    console.log("Firebase client connecté avec succès.");
   } catch (err) {
     console.warn("Notice initialisation Firebase client:", err);
   }
@@ -754,7 +758,7 @@ document.addEventListener('DOMContentLoaded', function() {
 ];
 
 
-const INITIAL_PROJECT: Project = {
+export const INITIAL_PROJECT: Project = {
   id: 'proj_sample_1',
   userId: 'usr_default_1',
   userEmail: 'client@devwebia.mg',

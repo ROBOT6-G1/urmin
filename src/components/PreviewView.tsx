@@ -174,6 +174,23 @@ export const PreviewView: React.FC<PreviewViewProps> = ({
       content = content.replace('</body>', `${watermarkBadge}</body>`);
     }
 
+    // Auto Multi-Language Translator Widget Injection
+    if (!content.includes('google_translate_element')) {
+      const translatorWidget = `<div id="devwebia-translator-widget" style="position:fixed;bottom:14px;left:14px;z-index:999999;background:rgba(15,23,42,0.92);backdrop-filter:blur(8px);border:1px solid rgba(99,102,241,0.4);border-radius:20px;padding:4px 10px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.5);display:flex;align-items:center;gap:6px;color:#fff;font-size:12px;font-family:sans-serif;">
+  <span style="font-size:13px;font-weight:bold;color:#818cf8;">🌐 Translate :</span>
+  <div id="google_translate_element"></div>
+</div>
+<script type="text/javascript">
+function googleTranslateElementInit() {
+  if (typeof google !== 'undefined' && google.translate) {
+    new google.translate.TranslateElement({pageLanguage: 'fr', includedLanguages: 'mg,fr,en,de,es,zh-CN', layout: google.translate.TranslateElement.InlineLayout.SIMPLE}, 'google_translate_element');
+  }
+}
+</script>
+<script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>`;
+      content = content.replace('</body>', `${translatorWidget}</body>`);
+    }
+
     return content;
   };
 

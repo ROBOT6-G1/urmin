@@ -23,6 +23,7 @@ export const ConnectedAppsModal: React.FC<ConnectedAppsModalProps> = ({
   const [firebaseApiKey, setFirebaseApiKey] = useState(user.firebaseApiKey || '');
   const [firebaseAuthDomain, setFirebaseAuthDomain] = useState(user.firebaseAuthDomain || '');
   const [firebaseDatabaseId, setFirebaseDatabaseId] = useState(user.firebaseDatabaseId || '');
+  const [whatsappNumber, setWhatsappNumber] = useState(user.whatsappNumber || '');
   
   const [savedSuccess, setSavedSuccess] = useState(false);
 
@@ -35,6 +36,7 @@ export const ConnectedAppsModal: React.FC<ConnectedAppsModalProps> = ({
       setFirebaseApiKey(user.firebaseApiKey || '');
       setFirebaseAuthDomain(user.firebaseAuthDomain || '');
       setFirebaseDatabaseId(user.firebaseDatabaseId || '');
+      setWhatsappNumber(user.whatsappNumber || '');
       setSavedSuccess(false);
     }
   }, [isOpen, user]);
@@ -55,6 +57,7 @@ export const ConnectedAppsModal: React.FC<ConnectedAppsModalProps> = ({
       firebaseAuthDomain,
       firebaseDatabaseId,
       firebaseStorageBucket: '',
+      whatsappNumber,
     });
     setSavedSuccess(true);
     setTimeout(() => {
@@ -258,6 +261,34 @@ export const ConnectedAppsModal: React.FC<ConnectedAppsModalProps> = ({
               value={vercelToken}
               onChange={(e) => setVercelToken(e.target.value)}
               className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white outline-none focus:border-indigo-500"
+            />
+          </div>
+
+          {/* WhatsApp Direct Push Orders Block */}
+          <div className="p-4 bg-emerald-950/40 rounded-2xl border border-emerald-500/30 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 font-bold text-white text-sm">
+                <span className="text-emerald-400 font-extrabold">💬 WhatsApp Direct Order Push</span>
+              </div>
+              {whatsappNumber ? (
+                <span className="text-emerald-400 font-bold bg-emerald-950 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
+                  {whatsappNumber}
+                </span>
+              ) : (
+                <span className="text-slate-400 font-normal">Tsy mbola misy</span>
+              )}
+            </div>
+
+            <p className="text-slate-300 text-[11px] leading-relaxed">
+              Ampidiro eto ny numéron'ny <strong>WhatsApp-nao (tompon'ny site)</strong>. Ny commande na formulaire rehetra ataon'ny client dia halefa ho azy amin'ny WhatsApp-nao amin'ny alalan'ny rohy mivantana (wa.me) miaraka amin'ny récapitulatif feno!
+            </p>
+
+            <input
+              type="text"
+              placeholder="ex: +261340000000 na 0340000000"
+              value={whatsappNumber}
+              onChange={(e) => setWhatsappNumber(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white outline-none focus:border-emerald-500 font-semibold"
             />
           </div>
 
