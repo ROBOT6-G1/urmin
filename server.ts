@@ -1000,10 +1000,26 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    const possibleDistPaths = [
+      path.join(process.cwd(), 'dist'),
+      path.join(__dirname, 'dist'),
+      path.join(__dirname, '../dist'),
+      process.cwd()
+    ];
+    let distPath = possibleDistPaths.find(p => fs.existsSync(path.join(p, 'index.html'))) || possibleDistPaths[0];
+    console.log(`[DEVWEBIA] Production mode. Serving static files from: ${distPath}`);
+
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api')) {
+        return next();
+      }
+      const indexPath = path.join(distPath, 'index.html');
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        res.status(404).send(`[DEVWEBIA] index.html not found in dist path (${distPath}). Please ensure the build completed successfully.`);
+      }
     });
   }
 
