@@ -260,7 +260,7 @@ export default function App() {
     saveProjects(projects);
   }, [projects]);
 
-  // Synchronize all user and admin data from Firestore on mount / user ID changes
+  // Synchronize all user and admin data from Firestore on mount / user ID changes and periodic sync
   useEffect(() => {
     const syncDatabaseData = async () => {
       if (!user?.id || user.id === 'usr_client_default') return;
@@ -341,8 +341,13 @@ export default function App() {
     };
 
     syncDatabaseData();
-    const syncInterval = setInterval(syncDatabaseData, 6000);
-    return () => clearInterval(syncInterval);
+    const syncInterval = setInterval(syncDatabaseData, 45000);
+    const handleFocus = () => syncDatabaseData();
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      clearInterval(syncInterval);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [user?.id]);
 
   // Ensure every user account has an isolated workspace project
@@ -802,18 +807,37 @@ export default function App() {
         emailSnap.forEach((d) => docIdsToUpdate.add(d.id));
       }
 
+      if (docIdsToUpdate.size === 0 && p.userId) {
+        docIdsToUpdate.add(p.userId);
+      }
+
       for (const uid of docIdsToUpdate) {
         const targetDocRef = doc(db, 'users', uid);
         const userSnap = await getDoc(targetDocRef);
-        const currentCredits = userSnap.exists() ? (userSnap.data().credits || 0) : 0;
+        const userData = userSnap.exists() ? userSnap.data() : {};
+        const currentCredits = userData.credits || 0;
 
         if (p.isAiKeySubscription) {
           const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-          await setDoc(targetDocRef, { aiKeySubActive: true, aiKeySubExpiresAt: expiresAt }, { merge: true });
+          await setDoc(targetDocRef, { 
+            id: uid,
+            email: p.userEmail,
+            aiKeySubActive: true, 
+            aiKeySubExpiresAt: expiresAt 
+          }, { merge: true });
         } else if (p.isProSubscription) {
-          await setDoc(targetDocRef, { plan: 'pro', credits: currentCredits + 15 }, { merge: true });
+          await setDoc(targetDocRef, { 
+            id: uid,
+            email: p.userEmail,
+            plan: 'pro', 
+            credits: currentCredits + 15 
+          }, { merge: true });
         } else {
-          await setDoc(targetDocRef, { credits: currentCredits + addCredits }, { merge: true });
+          await setDoc(targetDocRef, { 
+            id: uid,
+            email: p.userEmail,
+            credits: currentCredits + addCredits 
+          }, { merge: true });
         }
       }
     } catch (err) {
