@@ -203,28 +203,23 @@ export async function dbFetchPayments(userId: string, email: string, isAdmin: bo
     const paymentsRef = collection(db, 'payments');
     const paymentsMap = new Map<string, PaymentRequest>();
 
-    if (isAdmin) {
-      const snapshot = await getDocs(paymentsRef);
-      snapshot.forEach((doc) => {
-        paymentsMap.set(doc.data().id, doc.data() as PaymentRequest);
-      });
-    } else {
-      if (userId) {
-        const q1 = query(paymentsRef, where('userId', '==', userId));
-        const snap1 = await getDocs(q1);
-        snap1.forEach((doc) => {
-          paymentsMap.set(doc.data().id, doc.data() as PaymentRequest);
-        });
+    const snapshot = await getDocs(paymentsRef);
+    snapshot.forEach((docSnap) => {
+      const p = docSnap.data() as PaymentRequest;
+      if (!p || !p.id) return;
+      if (isAdmin) {
+        paymentsMap.set(p.id, p);
+      } else {
+        const pEmail = (p.userEmail || '').toLowerCase().trim();
+        const cleanEmail = (email || '').toLowerCase().trim();
+        if (
+          (userId && p.userId === userId) ||
+          (cleanEmail && pEmail === cleanEmail)
+        ) {
+          paymentsMap.set(p.id, p);
+        }
       }
-      const cleanEmail = (email || '').toLowerCase().trim();
-      if (cleanEmail) {
-        const q2 = query(paymentsRef, where('userEmail', '==', cleanEmail));
-        const snap2 = await getDocs(q2);
-        snap2.forEach((doc) => {
-          paymentsMap.set(doc.data().id, doc.data() as PaymentRequest);
-        });
-      }
-    }
+    });
     
     const payments = Array.from(paymentsMap.values());
     // Sort in-memory to prevent requiring composite indexes initially

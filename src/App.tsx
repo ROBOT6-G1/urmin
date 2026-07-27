@@ -319,6 +319,52 @@ export default function App() {
             });
             return updated;
           });
+
+          // Check if any payment belonging to current user is approved and not yet applied
+          if (!isAdmin && user?.id) {
+            const userPayments = dbPayments.filter(
+              (p) =>
+                p.status === 'approved' &&
+                (p.userId === user.id || (p.userEmail && user.email && p.userEmail.toLowerCase() === user.email.toLowerCase()))
+            );
+
+            const appliedIds = user.appliedPaymentIds || [];
+            let needsUserUpdate = false;
+            let addedCredits = 0;
+            let makePro = false;
+            let makeAiSub = false;
+            const newAppliedIds = [...appliedIds];
+
+            for (const p of userPayments) {
+              if (!appliedIds.includes(p.id)) {
+                needsUserUpdate = true;
+                newAppliedIds.push(p.id);
+                if (p.isAiKeySubscription) {
+                  makeAiSub = true;
+                } else if (p.isProSubscription) {
+                  makePro = true;
+                  addedCredits += 15;
+                } else {
+                  addedCredits += (p.creditsRequested || 40);
+                }
+              }
+            }
+
+            if (needsUserUpdate) {
+              setUser((prev) => {
+                const updated = {
+                  ...prev,
+                  plan: makePro ? 'pro' : prev.plan,
+                  credits: makeAiSub ? prev.credits : (prev.credits + addedCredits),
+                  aiKeySubActive: makeAiSub ? true : prev.aiKeySubActive,
+                  appliedPaymentIds: newAppliedIds,
+                };
+                saveUser(updated);
+                dbSaveUser(updated).catch(console.error);
+                return updated;
+              });
+            }
+          }
         }
 
         // D. Sync Tickets

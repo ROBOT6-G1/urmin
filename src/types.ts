@@ -41,6 +41,7 @@ export interface UserProfile {
   customGeminiModel?: string;
   aiKeySubActive?: boolean;
   aiKeySubExpiresAt?: string;
+  appliedPaymentIds?: string[];
   isBanned?: boolean;
   createdAt: string;
 }
