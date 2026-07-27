@@ -795,6 +795,12 @@ export default function App() {
           return updated;
         });
       }
+
+      // Also sync user profile to get instant credit/plan updates when user clicks Refresh in history tab
+      const syncedUser = await dbSyncUser(user);
+      if (syncedUser && JSON.stringify(syncedUser) !== JSON.stringify(user)) {
+        setUser(syncedUser);
+      }
     } catch (err) {
       console.error('Error manually syncing payments:', err);
     }
@@ -882,6 +888,13 @@ export default function App() {
         const userSnap = await getDoc(targetDocRef);
         const userData = userSnap.exists() ? userSnap.data() : {};
         const currentCredits = userData.credits || 0;
+        const currentAppliedIds = userData.appliedPaymentIds || [];
+
+        // Check if already applied to prevent duplicate credits additions
+        if (currentAppliedIds.includes(p.id)) {
+          continue;
+        }
+        const updatedAppliedIds = [...currentAppliedIds, p.id];
 
         if (p.isAiKeySubscription) {
           const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -889,20 +902,23 @@ export default function App() {
             id: uid,
             email: p.userEmail,
             aiKeySubActive: true, 
-            aiKeySubExpiresAt: expiresAt 
+            aiKeySubExpiresAt: expiresAt,
+            appliedPaymentIds: updatedAppliedIds
           }, { merge: true });
         } else if (p.isProSubscription) {
           await setDoc(targetDocRef, { 
             id: uid,
             email: p.userEmail,
             plan: 'pro', 
-            credits: currentCredits + 15 
+            credits: currentCredits + 15,
+            appliedPaymentIds: updatedAppliedIds
           }, { merge: true });
         } else {
           await setDoc(targetDocRef, { 
             id: uid,
             email: p.userEmail,
-            credits: currentCredits + addCredits 
+            credits: currentCredits + addCredits,
+            appliedPaymentIds: updatedAppliedIds
           }, { merge: true });
         }
       }
@@ -913,11 +929,17 @@ export default function App() {
     // Update local state if it's the current user or matching email
     if (p.userId === user.id || (user.email && p.userEmail && user.email.toLowerCase() === p.userEmail.toLowerCase())) {
       setUser((prev) => {
+        if (!prev) return prev;
+        const currentAppliedIds = prev.appliedPaymentIds || [];
+        if (currentAppliedIds.includes(p.id)) return prev;
+        const updatedAppliedIds = [...currentAppliedIds, p.id];
+
         const updated = {
           ...prev,
           plan: p.isProSubscription ? 'pro' : prev.plan,
-          credits: p.aiKeySubActive ? prev.credits : (prev.credits + addCredits),
+          credits: p.isAiKeySubscription ? prev.credits : (prev.credits + addCredits),
           aiKeySubActive: p.isAiKeySubscription ? true : prev.aiKeySubActive,
+          appliedPaymentIds: updatedAppliedIds,
         };
         saveUser(updated);
         dbSaveUser(updated).catch(console.error);
@@ -925,14 +947,20 @@ export default function App() {
       });
     }
 
-    // Update dbUsers state
+    // Update dbUsers state for admin panel view
     setDbUsers((prev) =>
       prev.map((u) => {
         if (u.id === p.userId || (u.email && p.userEmail && u.email.toLowerCase() === p.userEmail.toLowerCase())) {
+          const currentAppliedIds = u.appliedPaymentIds || [];
+          if (currentAppliedIds.includes(p.id)) return u;
+          const updatedAppliedIds = [...currentAppliedIds, p.id];
+
           const updatedU = {
             ...u,
-            credits: (u.credits || 0) + addCredits,
-            plan: p.isProSubscription ? 'pro' : u.plan,
+            credits: p.isAiKeySubscription ? (u.credits || 0) : ((u.credits || 0) + addCredits),
+            plan: p.isProSubscription ? ('pro' as const) : u.plan,
+            aiKeySubActive: p.isAiKeySubscription ? true : u.aiKeySubActive,
+            appliedPaymentIds: updatedAppliedIds,
           };
           dbSaveUser(updatedU).catch(console.error);
           return updatedU;
