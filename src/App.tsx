@@ -783,37 +783,58 @@ export default function App() {
     );
     dbSavePayment(updatedPayment).catch(console.error);
 
-    // Credit target user
+    // Credit target user reliably
+    const addCredits = p.isProSubscription ? 15 : (p.creditsRequested || 40);
     const userRef = doc(db, 'users', p.userId);
+    
     getDoc(userRef).then((docSnap) => {
-      if (docSnap.exists()) {
-        const targetUser = docSnap.data();
-        if (p.isAiKeySubscription) {
-          const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-          setDoc(userRef, { aiKeySubActive: true, aiKeySubExpiresAt: expiresAt }, { merge: true }).catch(console.error);
-          if (p.userId === user.id) {
-            setUser((prev) => ({
-              ...prev,
-              aiKeySubActive: true,
-              aiKeySubExpiresAt: expiresAt,
-            }));
-          }
-        } else if (p.isProSubscription) {
-          setDoc(userRef, { plan: 'pro', credits: (targetUser.credits || 0) + 15 }, { merge: true }).catch(console.error);
-        } else {
-          setDoc(userRef, { credits: (targetUser.credits || 0) + p.creditsRequested }, { merge: true }).catch(console.error);
-        }
-        
-        // Also update local state if the admin is approving their own payment
-        if (p.userId === user.id && !p.isAiKeySubscription) {
-          setUser((prev) => ({
-            ...prev,
-            plan: p.isProSubscription ? 'pro' : prev.plan,
-            credits: prev.credits + (p.isProSubscription ? 15 : p.creditsRequested)
-          }));
-        }
+      const currentCredits = docSnap.exists() ? (docSnap.data().credits || 0) : 0;
+      if (p.isAiKeySubscription) {
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        setDoc(userRef, { aiKeySubActive: true, aiKeySubExpiresAt: expiresAt }, { merge: true }).catch(console.error);
+      } else if (p.isProSubscription) {
+        setDoc(userRef, { plan: 'pro', credits: currentCredits + 15 }, { merge: true }).catch(console.error);
+      } else {
+        setDoc(userRef, { credits: currentCredits + addCredits }, { merge: true }).catch(console.error);
       }
-    }).catch(console.error);
+    }).catch(() => {
+      // Fallback direct set
+      setDoc(userRef, {
+        id: p.userId,
+        email: p.userEmail,
+        credits: addCredits,
+        plan: p.isProSubscription ? 'pro' : 'free',
+        createdAt: new Date().toISOString(),
+      }, { merge: true }).catch(console.error);
+    });
+
+    // Update local state if it's the current user or matching email
+    if (p.userId === user.id || (user.email && p.userEmail && user.email.toLowerCase() === p.userEmail.toLowerCase())) {
+      setUser((prev) => {
+        const updated = {
+          ...prev,
+          plan: p.isProSubscription ? 'pro' : prev.plan,
+          credits: p.aiKeySubActive ? prev.credits : (prev.credits + addCredits),
+          aiKeySubActive: p.isAiKeySubscription ? true : prev.aiKeySubActive,
+        };
+        saveUser(updated);
+        return updated;
+      });
+    }
+
+    // Update dbUsers state
+    setDbUsers((prev) =>
+      prev.map((u) => {
+        if (u.id === p.userId || (u.email && p.userEmail && u.email.toLowerCase() === p.userEmail.toLowerCase())) {
+          return {
+            ...u,
+            credits: (u.credits || 0) + addCredits,
+            plan: p.isProSubscription ? 'pro' : u.plan,
+          };
+        }
+        return u;
+      })
+    );
   };
 
   const handleRejectPayment = (paymentId: string) => {
