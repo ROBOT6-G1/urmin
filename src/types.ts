@@ -59,6 +59,18 @@ export interface ProjectVersion {
   summary: string;
 }
 
+export interface ProjectLocation {
+  name?: string;
+  address?: string;
+  city?: string;
+  postalCode?: string;
+  country?: string;
+  phone?: string;
+  openingHours?: string;
+  googleMapsEmbed?: string;
+  notes?: string;
+}
+
 export interface Project {
   id: string;
   userId: string;
@@ -75,6 +87,7 @@ export interface Project {
   customDomain?: string;
   githubRepo?: string;
   firebaseLinked?: boolean;
+  location?: ProjectLocation;
 }
 
 export interface ChatMessage {

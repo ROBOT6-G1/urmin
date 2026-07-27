@@ -24,6 +24,7 @@ import {
   Info,
   Check,
   Key,
+  MapPin,
 } from 'lucide-react';
 import { Project, UserProfile } from '../types';
 
@@ -43,6 +44,7 @@ interface SidebarProps {
   onOpenReferral: () => void;
   onOpenDomain: () => void;
   onOpenGoogleSeo: () => void;
+  onOpenLocation?: (projectId?: string) => void;
   onOpenAdmin: () => void;
   onOpenAbout?: () => void;
   onLogout: () => void;
@@ -69,6 +71,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenReferral,
   onOpenDomain,
   onOpenGoogleSeo,
+  onOpenLocation,
   onOpenAdmin,
   onOpenAbout,
   onLogout,
@@ -436,6 +439,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <Globe className="w-4 h-4" />
               </div>
               <span>Domaine Personnalisé</span>
+            </button>
+
+            {/* 👉 Localisation Manuelle */}
+            <button
+              onClick={() => {
+                if (onOpenLocation) onOpenLocation();
+                onClose();
+              }}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent hover:border-slate-700 transition-all"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
+                  <MapPin className="w-4 h-4" />
+                </div>
+                <span>Localisation Manuelle</span>
+              </div>
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded-full">
+                GPS
+              </span>
             </button>
 
             {/* 👉 SEO Google */}

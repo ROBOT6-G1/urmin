@@ -33,7 +33,7 @@ export const CustomAiKeyModal: React.FC<CustomAiKeyModalProps> = ({
   const [apiKey, setApiKey] = useState<string>(user.customGeminiApiKey || '');
   const [showKey, setShowKey] = useState<boolean>(false);
   const [selectedModel, setSelectedModel] = useState<string>(
-    user.customGeminiModel || 'gemini-2.5-flash'
+    user.customGeminiModel || 'gemini-3.6-flash'
   );
   const [useCustomKey, setUseCustomKey] = useState<boolean>(
     Boolean(user.useCustomKey && user.aiKeySubActive)
@@ -168,10 +168,10 @@ export const CustomAiKeyModal: React.FC<CustomAiKeyModalProps> = ({
               onChange={(e) => setSelectedModel(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white font-medium outline-none focus:border-purple-500"
             >
-              <option value="gemini-2.5-flash">⚡ gemini-2.5-flash (Auto-Sélectionné • Ultra Rapide & Recommandé)</option>
-              <option value="gemini-2.5-pro">🧠 gemini-2.5-pro (Pro • Analyse Avancée & Code Complexe)</option>
-              <option value="gemini-2.0-flash">🚀 gemini-2.0-flash (Flash • Rapide & Fluide)</option>
-              <option value="gemini-1.5-flash">⚙️ gemini-1.5-flash (Standard)</option>
+              <option value="gemini-3.6-flash">⚡ gemini-3.6-flash (Auto-Sélectionné • Ultra Rapide & Recommandé)</option>
+              <option value="gemini-3.1-pro-preview">🧠 gemini-3.1-pro-preview (Pro • Code Complexe & Analyse Avancée)</option>
+              <option value="gemini-3.5-flash">🚀 gemini-3.5-flash (Flash • Rapide & Fluide)</option>
+              <option value="gemini-3.1-flash-lite">⚙️ gemini-3.1-flash-lite (Lite • Économe)</option>
             </select>
             <p className="text-[10px] text-slate-400">
               Ataon'ny système auto-select direct ity modely ampiasan'ny Clé API Gemini-nao ity.

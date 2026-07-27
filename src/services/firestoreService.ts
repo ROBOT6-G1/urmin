@@ -50,27 +50,56 @@ export async function dbSyncUser(userProfile: UserProfile): Promise<UserProfile>
 
     if (userSnapshot.exists()) {
       const dbUser = userSnapshot.data() as UserProfile;
-      // Merge local with DB values (DB values take priority for credits/plan)
+
+      const githubToken = dbUser.githubToken || userProfile.githubToken || '';
+      const githubUsername = dbUser.githubUsername || userProfile.githubUsername || '';
+      const vercelToken = dbUser.vercelToken || userProfile.vercelToken || '';
+      const firebaseProjectId = dbUser.firebaseProjectId || userProfile.firebaseProjectId || '';
+      const firebaseApiKey = dbUser.firebaseApiKey || userProfile.firebaseApiKey || '';
+      const firebaseAuthDomain = dbUser.firebaseAuthDomain || userProfile.firebaseAuthDomain || '';
+      const firebaseDatabaseId = dbUser.firebaseDatabaseId || userProfile.firebaseDatabaseId || '';
+
       const merged: UserProfile = {
         ...userProfile,
         ...dbUser,
         plan: isAdmin ? 'pro' : (dbUser.plan || 'free'),
         credits: isAdmin ? 999 : (dbUser.credits !== undefined ? dbUser.credits : (userProfile.credits !== undefined ? userProfile.credits : 5)),
         referralsCount: dbUser.referralsCount !== undefined ? dbUser.referralsCount : 0,
-        githubConnected: userProfile.githubConnected || dbUser.githubConnected,
-        vercelConnected: userProfile.vercelConnected || dbUser.vercelConnected,
+        githubToken,
+        githubUsername,
+        githubConnected: Boolean(githubToken.trim() && githubUsername.trim()),
+        vercelToken,
+        vercelConnected: Boolean(vercelToken.trim()),
+        firebaseProjectId,
+        firebaseApiKey,
+        firebaseAuthDomain,
+        firebaseDatabaseId,
+        firebaseConnected: Boolean(firebaseProjectId.trim() && firebaseApiKey.trim()),
       };
       
       // Update DB to ensure clean consistency
       await setDoc(userDocRef, merged, { merge: true });
       return merged;
     } else {
-      // First time registration in Firestore
+      const githubToken = userProfile.githubToken || '';
+      const githubUsername = userProfile.githubUsername || '';
+      const vercelToken = userProfile.vercelToken || '';
+      const firebaseProjectId = userProfile.firebaseProjectId || '';
+      const firebaseApiKey = userProfile.firebaseApiKey || '';
+
       const newUserProfile: UserProfile = {
         ...userProfile,
         plan: isAdmin ? 'pro' : 'free',
         credits: isAdmin ? 999 : 5,
         referralsCount: 0,
+        githubToken,
+        githubUsername,
+        githubConnected: Boolean(githubToken.trim() && githubUsername.trim()),
+        vercelToken,
+        vercelConnected: Boolean(vercelToken.trim()),
+        firebaseProjectId,
+        firebaseApiKey,
+        firebaseConnected: Boolean(firebaseProjectId.trim() && firebaseApiKey.trim()),
       };
       await setDoc(userDocRef, newUserProfile);
       return newUserProfile;

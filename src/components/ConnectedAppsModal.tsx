@@ -43,17 +43,27 @@ export const ConnectedAppsModal: React.FC<ConnectedAppsModalProps> = ({
 
   if (!isOpen) return null;
 
+  const isGhConnected = Boolean(githubToken.trim() && githubUsername.trim());
+  const isVcConnected = Boolean(vercelToken.trim());
+  const isFbConnected = Boolean(firebaseProjectId.trim() && firebaseApiKey.trim());
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanGhToken = githubToken.trim();
+    const cleanGhUser = githubUsername.trim();
+    const cleanVercelToken = vercelToken.trim();
+    const cleanFbProj = firebaseProjectId.trim();
+    const cleanFbKey = firebaseApiKey.trim();
+
     onSaveConnections({
-      githubConnected: Boolean(githubToken || githubUsername),
-      githubToken,
-      githubUsername,
-      vercelConnected: Boolean(vercelToken),
-      vercelToken,
-      firebaseConnected: Boolean(firebaseProjectId && firebaseApiKey),
-      firebaseProjectId,
-      firebaseApiKey,
+      githubConnected: Boolean(cleanGhToken && cleanGhUser),
+      githubToken: cleanGhToken,
+      githubUsername: cleanGhUser,
+      vercelConnected: Boolean(cleanVercelToken),
+      vercelToken: cleanVercelToken,
+      firebaseConnected: Boolean(cleanFbProj && cleanFbKey),
+      firebaseProjectId: cleanFbProj,
+      firebaseApiKey: cleanFbKey,
       firebaseAuthDomain,
       firebaseDatabaseId,
       firebaseStorageBucket: '',
@@ -94,7 +104,7 @@ export const ConnectedAppsModal: React.FC<ConnectedAppsModalProps> = ({
                 <Flame className="w-5 h-5 text-amber-500 fill-amber-500" />
                 <span>FIREBASE Database & Auth (Manokana)</span>
               </div>
-              {user.firebaseConnected ? (
+              {isFbConnected ? (
                 <span className="text-emerald-400 font-extrabold flex items-center gap-1 bg-emerald-950/80 px-2.5 py-1 rounded-full border border-emerald-500/30">
                   <Check className="w-3.5 h-3.5" /> Connecté
                 </span>
@@ -186,7 +196,7 @@ export const ConnectedAppsModal: React.FC<ConnectedAppsModalProps> = ({
                 <Github className="w-5 h-5 text-slate-200" />
                 <span>GitHub API Token & Username</span>
               </div>
-              {user.githubConnected ? (
+              {isGhConnected ? (
                 <span className="text-emerald-400 font-bold flex items-center gap-1">
                   <Check className="w-3.5 h-3.5" /> Connecté
                 </span>
@@ -233,7 +243,7 @@ export const ConnectedAppsModal: React.FC<ConnectedAppsModalProps> = ({
                 <Globe className="w-5 h-5 text-cyan-400" />
                 <span>Vercel Access Token</span>
               </div>
-              {user.vercelConnected ? (
+              {isVcConnected ? (
                 <span className="text-emerald-400 font-bold flex items-center gap-1">
                   <Check className="w-3.5 h-3.5" /> Connecté
                 </span>

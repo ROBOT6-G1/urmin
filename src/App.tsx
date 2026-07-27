@@ -19,6 +19,7 @@ import { AuthModal } from './components/AuthModal';
 import { GuideModal } from './components/GuideModal';
 import { ProjectsHistoryModal } from './components/ProjectsHistoryModal';
 import { GoogleSeoModal } from './components/GoogleSeoModal';
+import { ProjectLocationModal } from './components/ProjectLocationModal';
 import { AboutModal } from './components/AboutModal';
 import { CustomAiKeyModal } from './components/CustomAiKeyModal';
 import { ResetPasswordModal } from './components/ResetPasswordModal';
@@ -114,6 +115,7 @@ export default function App() {
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isGoogleSeoOpen, setIsGoogleSeoOpen] = useState(false);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isCustomAiKeyOpen, setIsCustomAiKeyOpen] = useState(false);
   const [rechargeInitialType, setRechargeInitialType] = useState<'credits' | 'ai_key_sub'>('credits');
@@ -206,19 +208,36 @@ export default function App() {
 
         // B. Sync Projects
         const dbProjects = await dbFetchUserProjects(user.id, user.email);
-        if (dbProjects.length > 0) {
-          setProjects(dbProjects);
-        } else {
-          // If no projects in Firestore but user has local projects, upload them
-          const userLocalProjs = getStoredProjects().filter(
-            (p) => p.userId === user.id || p.userEmail === user.email
-          );
-          if (userLocalProjs.length > 0) {
-            for (const localProj of userLocalProjs) {
-              await dbSaveProject(localProj);
-            }
-            setProjects(userLocalProjs);
+        const localProjs = getStoredProjects();
+        const mergedMap = new Map<string, Project>();
+
+        dbProjects.forEach((p) => {
+          if (p && p.id) {
+            mergedMap.set(p.id, p);
           }
+        });
+
+        localProjs.forEach((lp) => {
+          if (!lp || !lp.id) return;
+          const dbP = mergedMap.get(lp.id);
+          if (!dbP) {
+            mergedMap.set(lp.id, lp);
+            dbSaveProject(lp).catch(console.error);
+          } else {
+            const dbTime = new Date(dbP.updatedAt || 0).getTime();
+            const localTime = new Date(lp.updatedAt || 0).getTime();
+            const dbFilesCount = Array.isArray(dbP.files) ? dbP.files.length : 0;
+            const localFilesCount = Array.isArray(lp.files) ? lp.files.length : 0;
+            if (localTime > dbTime || localFilesCount > dbFilesCount) {
+              mergedMap.set(lp.id, lp);
+              dbSaveProject(lp).catch(console.error);
+            }
+          }
+        });
+
+        const finalMergedProjects = Array.from(mergedMap.values());
+        if (finalMergedProjects.length > 0) {
+          setProjects(finalMergedProjects);
         }
 
         // C. Sync Payments
@@ -481,13 +500,24 @@ export default function App() {
     setMessages((prev) => [...prev, userMsg]);
     setIsGenerating(true);
 
+    let currentFilesList: CodeFile[] = [];
+    if (Array.isArray(currentProject?.files)) {
+      currentFilesList = currentProject.files;
+    } else if (typeof currentProject?.files === 'string') {
+      try {
+        currentFilesList = JSON.parse(currentProject.files);
+      } catch (e) {
+        currentFilesList = [];
+      }
+    }
+
     try {
       const res = await fetch('/api/generate-website', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: text,
-          existingFiles: currentProject.files,
+          existingFiles: currentFilesList,
           userPlan: user.plan,
           customDomain: user.customDomain,
           clientFirebase: (user.firebaseConnected && user.firebaseApiKey && user.firebaseProjectId) ? {
@@ -499,7 +529,7 @@ export default function App() {
           } : null,
           whatsappNumber: user.whatsappNumber || null,
           customGeminiApiKey: isUsingCustomKey ? user.customGeminiApiKey : null,
-          customGeminiModel: user.customGeminiModel || 'gemini-2.5-flash',
+          customGeminiModel: user.customGeminiModel || 'gemini-3.6-flash',
           aiKeySubActive: Boolean(user.aiKeySubActive),
         }),
       });
@@ -540,11 +570,22 @@ export default function App() {
 
               // Smart merge: retain all existing project files and update or add the modified files
               const mergedFilesMap = new Map<string, CodeFile>();
-              (p.files || []).forEach((f) => {
-                mergedFilesMap.set(f.name.toLowerCase(), f);
+              let pExisting: CodeFile[] = [];
+              if (Array.isArray(p.files)) {
+                pExisting = p.files;
+              } else if (typeof p.files === 'string') {
+                try { pExisting = JSON.parse(p.files); } catch { pExisting = []; }
+              }
+
+              pExisting.forEach((f) => {
+                if (f && f.name) {
+                  mergedFilesMap.set(f.name.trim().toLowerCase(), f);
+                }
               });
               newOrUpdatedFiles.forEach((f) => {
-                mergedFilesMap.set(f.name.toLowerCase(), f);
+                if (f && f.name) {
+                  mergedFilesMap.set(f.name.trim().toLowerCase(), f);
+                }
               });
               const mergedFiles = Array.from(mergedFilesMap.values());
 
@@ -832,9 +873,9 @@ export default function App() {
     storageUsedMb: 50,
     referralCode: 'DEVWEB-0001',
     referralsCount: 0,
-    githubConnected: true,
-    vercelConnected: true,
-    firebaseConnected: true,
+    githubConnected: false,
+    vercelConnected: false,
+    firebaseConnected: false,
     createdAt: new Date().toISOString(),
   };
 
@@ -880,18 +921,31 @@ export default function App() {
         storageUsedMb: existing.storageUsedMb || 120,
         referralCode: existing.referralCode || ('DEVWEB-' + Math.floor(1000 + Math.random() * 9000)),
         referralsCount: existing.referralsCount !== undefined ? existing.referralsCount : 0,
-        githubConnected: Boolean(existing.githubToken || existing.githubUsername || isPro),
         githubToken: existing.githubToken || '',
         githubUsername: existing.githubUsername || '',
-        vercelConnected: Boolean(existing.vercelToken || isPro),
+        githubConnected: Boolean((existing.githubToken?.trim()) && (existing.githubUsername?.trim())),
         vercelToken: existing.vercelToken || '',
-        firebaseConnected: Boolean(existing.firebaseProjectId && existing.firebaseApiKey),
+        vercelConnected: Boolean(existing.vercelToken?.trim()),
         firebaseProjectId: existing.firebaseProjectId || '',
         firebaseApiKey: existing.firebaseApiKey || '',
         firebaseAuthDomain: existing.firebaseAuthDomain || '',
         firebaseDatabaseId: existing.firebaseDatabaseId || '',
+        firebaseConnected: Boolean((existing.firebaseProjectId?.trim()) && (existing.firebaseApiKey?.trim())),
         createdAt: existing.createdAt || new Date().toISOString(),
       };
+    });
+  };
+
+  const handleSaveConnections = (updated: Partial<UserProfile>) => {
+    setUser((prev) => {
+      const nextUser = { ...prev, ...updated };
+      saveUser(nextUser);
+      if (nextUser.id && nextUser.id !== 'usr_client_default') {
+        dbSaveUser(nextUser).catch((err) =>
+          console.warn('Error saving user connections to Firestore:', err)
+        );
+      }
+      return nextUser;
     });
   };
 
@@ -913,18 +967,27 @@ export default function App() {
       filesToSave = projectIdOrFiles;
     }
 
-    setProjects((prev) =>
-      prev.map((p) =>
-        p.id === targetProjectId
-          ? {
-              ...p,
-              files: filesToSave,
-              ...(urlToSave ? { deployedUrl: urlToSave, lastDeployedAt: lastDeployedAt || new Date().toISOString() } : {}),
-              updatedAt: new Date().toISOString(),
-            }
-          : p
-      )
-    );
+    setProjects((prev) => {
+      const updatedList = prev.map((p) => {
+        if (p.id === targetProjectId) {
+          const updatedProj: Project = {
+            ...p,
+            files: filesToSave,
+            ...(urlToSave ? { deployedUrl: urlToSave, lastDeployedAt: lastDeployedAt || new Date().toISOString() } : {}),
+            updatedAt: new Date().toISOString(),
+          };
+          if (user && user.id && user.id !== 'usr_client_default') {
+            dbSaveProject(updatedProj).catch((err) =>
+              console.warn('Error saving updated project files to Firestore:', err)
+            );
+          }
+          return updatedProj;
+        }
+        return p;
+      });
+      saveProjects(updatedList);
+      return updatedList;
+    });
   };
 
   return (
@@ -966,6 +1029,7 @@ export default function App() {
           onOpenReferral={() => setIsReferralOpen(true)}
           onOpenDomain={() => setIsDomainOpen(true)}
           onOpenGoogleSeo={() => setIsGoogleSeoOpen(true)}
+          onOpenLocation={() => setIsLocationModalOpen(true)}
           onOpenAdmin={() => setIsAdminOpen(true)}
           onOpenAbout={() => setIsAboutOpen(true)}
           onLogout={() => setIsAuthOpen(true)}
@@ -1045,7 +1109,7 @@ export default function App() {
         user={user}
         isOpen={isConnectedAppsOpen}
         onClose={() => setIsConnectedAppsOpen(false)}
-        onSaveConnections={(updated) => setUser((prev) => ({ ...prev, ...updated }))}
+        onSaveConnections={handleSaveConnections}
       />
 
       <CustomDomainModal
@@ -1072,6 +1136,19 @@ export default function App() {
         }}
         onSendSeoPromptToAI={(promptText) => {
           setIsGoogleSeoOpen(false);
+          setActiveTab('chat');
+          handleSendMessage(promptText);
+        }}
+      />
+
+      <ProjectLocationModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+        projects={userProjects}
+        currentProjectId={currentProject.id}
+        onUpdateProjectFiles={handleUpdateProjectFiles}
+        onSendLocationPromptToAI={(promptText) => {
+          setIsLocationModalOpen(false);
           setActiveTab('chat');
           handleSendMessage(promptText);
         }}

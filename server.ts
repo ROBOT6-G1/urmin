@@ -135,11 +135,11 @@ async function generateWebsiteWithKeys(
   }
 
   const baseModelsToTry = [
-    'gemini-2.5-flash',
     'gemini-3.6-flash',
     'gemini-3.5-flash',
-    'gemini-2.0-flash',
-    'gemini-1.5-flash',
+    'gemini-3.1-pro-preview',
+    'gemini-3.5-flash-lite',
+    'gemini-3.1-flash-lite',
   ];
   let lastError: any = null;
 
@@ -552,11 +552,24 @@ app.post('/api/generate-website', async (req, res) => {
     }
 
     let codeContext = '';
-    if (existingFiles && Array.isArray(existingFiles) && existingFiles.length > 0) {
-      codeContext = `\n[CODE ACTUEL DU PROJET À CONSERVER ET À ENRICHIR] :\n` +
-        existingFiles.map((f: any) => `--- FILE: ${f.name} ---\n${f.content}`).join('\n\n') +
-        `\n\n[INSTRUCTION MAJEURE DE CONSERVATION DE CODE] :\n` +
-        `Les fichiers ci-dessus représentent le site web existant. Tu DOIS CONSERVER l'intégralité du contenu, des pages, des sections, des textes et des fonctionnalités existantes. Tu dois simplement apporter la modification ou l'ajout demandé par l'utilisateur ci-dessous sans supprimer ni raccourcir le reste !`;
+    let filesArray = existingFiles;
+    if (typeof filesArray === 'string') {
+      try {
+        filesArray = JSON.parse(filesArray);
+      } catch (e) {
+        filesArray = [];
+      }
+    }
+
+    if (Array.isArray(filesArray) && filesArray.length > 0) {
+      codeContext = `\n[CODE ACTUEL DU PROJET À CONSERVER IMPÉRATIVEMENT - FICHIERS EXISTANTS (${filesArray.length})] :\n` +
+        filesArray.map((f: any) => `=== FICHIER: ${f.name} ===\n${f.content}`).join('\n\n') +
+        `\n\n[INSTRUCTION MAJEURE DE CONSERVATION DE CODE ET DE MISE À JOUR] :\n` +
+        `ATTENTION: Il s'agit d'une MISE À JOUR d'un projet existant ! Les fichiers ci-dessus représentent le site web existant.\n` +
+        `1. Tu DOIS OBLIGATOIREMENT CONSERVER tout le contenu, le design, les pages, les sections HTML, les styles CSS, les scripts JS, l'Espace Admin et les fonctionnalités déjà présents dans les fichiers ci-dessus.\n` +
+        `2. NE SUPPRIME ET NE MODIFIE PAS les fonctionnalités existantes sauf si la demande de l'utilisateur le requiert spécifiquement.\n` +
+        `3. Apporte la modification ou l'ajout demandé par l'utilisateur proprement en enrichissant le code existant.\n` +
+        `4. Renvoie les fichiers modifiés en intégralité. Le système les fusionnera automatiquement avec les fichiers existants non modifiés pour qu'aucun fichier ne soit perdu !`;
     }
 
     const fullPrompt = `${userContext}\n${codeContext}\n\nDemande de modification / ajout de l'utilisateur : ${prompt}`;
@@ -592,7 +605,7 @@ app.post('/api/generate-website', async (req, res) => {
     if (customGeminiApiKey && typeof customGeminiApiKey === 'string' && customGeminiApiKey.trim() && aiKeySubActive) {
       userCustomKeyConfig = {
         apiKey: customGeminiApiKey.trim(),
-        model: customGeminiModel || 'gemini-2.5-flash',
+        model: customGeminiModel || 'gemini-3.6-flash',
       };
     }
 
