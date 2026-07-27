@@ -24,7 +24,7 @@ import { AboutModal } from './components/AboutModal';
 import { CustomAiKeyModal } from './components/CustomAiKeyModal';
 import { ResetPasswordModal } from './components/ResetPasswordModal';
 import { auth, onAuthStateChanged, db } from './lib/firebase';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 
 import {
   UserProfile,
@@ -341,6 +341,8 @@ export default function App() {
     };
 
     syncDatabaseData();
+    const syncInterval = setInterval(syncDatabaseData, 6000);
+    return () => clearInterval(syncInterval);
   }, [user?.id]);
 
   // Ensure every user account has an isolated workspace project
@@ -766,7 +768,7 @@ export default function App() {
   };
 
   // Admin Actions
-  const handleApprovePayment = (paymentId: string) => {
+  const handleApprovePayment = async (paymentId: string) => {
     const p = payments.find((item) => item.id === paymentId);
     if (!p) return;
 
@@ -781,32 +783,37 @@ export default function App() {
         item.id === paymentId ? updatedPayment : item
       )
     );
-    dbSavePayment(updatedPayment).catch(console.error);
+    await dbSavePayment(updatedPayment).catch(console.error);
 
-    // Credit target user reliably
+    // Credit target user reliably in Firestore
     const addCredits = p.isProSubscription ? 15 : (p.creditsRequested || 40);
-    const userRef = doc(db, 'users', p.userId);
-    
-    getDoc(userRef).then((docSnap) => {
-      const currentCredits = docSnap.exists() ? (docSnap.data().credits || 0) : 0;
+    try {
+      const usersRef = collection(db, 'users');
+      let targetDocRef = doc(db, 'users', p.userId);
+      let userSnap = await getDoc(targetDocRef);
+
+      if (!userSnap.exists() && p.userEmail) {
+        const q = query(usersRef, where('email', '==', p.userEmail.trim().toLowerCase()));
+        const qSnap = await getDocs(q);
+        if (!qSnap.empty) {
+          targetDocRef = doc(db, 'users', qSnap.docs[0].id);
+          userSnap = qSnap.docs[0];
+        }
+      }
+
+      const currentCredits = userSnap.exists() ? (userSnap.data().credits || 0) : 0;
+
       if (p.isAiKeySubscription) {
         const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-        setDoc(userRef, { aiKeySubActive: true, aiKeySubExpiresAt: expiresAt }, { merge: true }).catch(console.error);
+        await setDoc(targetDocRef, { aiKeySubActive: true, aiKeySubExpiresAt: expiresAt }, { merge: true });
       } else if (p.isProSubscription) {
-        setDoc(userRef, { plan: 'pro', credits: currentCredits + 15 }, { merge: true }).catch(console.error);
+        await setDoc(targetDocRef, { plan: 'pro', credits: currentCredits + 15 }, { merge: true });
       } else {
-        setDoc(userRef, { credits: currentCredits + addCredits }, { merge: true }).catch(console.error);
+        await setDoc(targetDocRef, { credits: currentCredits + addCredits }, { merge: true });
       }
-    }).catch(() => {
-      // Fallback direct set
-      setDoc(userRef, {
-        id: p.userId,
-        email: p.userEmail,
-        credits: addCredits,
-        plan: p.isProSubscription ? 'pro' : 'free',
-        createdAt: new Date().toISOString(),
-      }, { merge: true }).catch(console.error);
-    });
+    } catch (err) {
+      console.error('Error crediting user in Firestore:', err);
+    }
 
     // Update local state if it's the current user or matching email
     if (p.userId === user.id || (user.email && p.userEmail && user.email.toLowerCase() === p.userEmail.toLowerCase())) {
@@ -818,6 +825,7 @@ export default function App() {
           aiKeySubActive: p.isAiKeySubscription ? true : prev.aiKeySubActive,
         };
         saveUser(updated);
+        dbSaveUser(updated).catch(console.error);
         return updated;
       });
     }
@@ -826,11 +834,13 @@ export default function App() {
     setDbUsers((prev) =>
       prev.map((u) => {
         if (u.id === p.userId || (u.email && p.userEmail && u.email.toLowerCase() === p.userEmail.toLowerCase())) {
-          return {
+          const updatedU = {
             ...u,
             credits: (u.credits || 0) + addCredits,
             plan: p.isProSubscription ? 'pro' : u.plan,
           };
+          dbSaveUser(updatedU).catch(console.error);
+          return updatedU;
         }
         return u;
       })
