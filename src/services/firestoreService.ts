@@ -201,18 +201,32 @@ export async function dbFetchPayments(userId: string, email: string, isAdmin: bo
   const path = 'payments';
   try {
     const paymentsRef = collection(db, 'payments');
-    let q;
+    const paymentsMap = new Map<string, PaymentRequest>();
+
     if (isAdmin) {
-      q = query(paymentsRef);
+      const snapshot = await getDocs(paymentsRef);
+      snapshot.forEach((doc) => {
+        paymentsMap.set(doc.data().id, doc.data() as PaymentRequest);
+      });
     } else {
-      q = query(paymentsRef, where('userId', '==', userId));
+      if (userId) {
+        const q1 = query(paymentsRef, where('userId', '==', userId));
+        const snap1 = await getDocs(q1);
+        snap1.forEach((doc) => {
+          paymentsMap.set(doc.data().id, doc.data() as PaymentRequest);
+        });
+      }
+      const cleanEmail = (email || '').toLowerCase().trim();
+      if (cleanEmail) {
+        const q2 = query(paymentsRef, where('userEmail', '==', cleanEmail));
+        const snap2 = await getDocs(q2);
+        snap2.forEach((doc) => {
+          paymentsMap.set(doc.data().id, doc.data() as PaymentRequest);
+        });
+      }
     }
-    const snapshot = await getDocs(q);
-    const payments: PaymentRequest[] = [];
-    snapshot.forEach((doc) => {
-      payments.push(doc.data() as PaymentRequest);
-    });
     
+    const payments = Array.from(paymentsMap.values());
     // Sort in-memory to prevent requiring composite indexes initially
     return payments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   } catch (error) {

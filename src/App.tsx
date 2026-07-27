@@ -785,31 +785,36 @@ export default function App() {
     );
     await dbSavePayment(updatedPayment).catch(console.error);
 
-    // Credit target user reliably in Firestore
+    // Credit target user reliably in Firestore across all matching records (userId and email)
     const addCredits = p.isProSubscription ? 15 : (p.creditsRequested || 40);
     try {
       const usersRef = collection(db, 'users');
-      let targetDocRef = doc(db, 'users', p.userId);
-      let userSnap = await getDoc(targetDocRef);
+      const cleanEmail = (p.userEmail || '').toLowerCase().trim();
+      const docIdsToUpdate = new Set<string>();
 
-      if (!userSnap.exists() && p.userEmail) {
-        const q = query(usersRef, where('email', '==', p.userEmail.trim().toLowerCase()));
-        const qSnap = await getDocs(q);
-        if (!qSnap.empty) {
-          targetDocRef = doc(db, 'users', qSnap.docs[0].id);
-          userSnap = qSnap.docs[0];
-        }
+      if (p.userId) {
+        docIdsToUpdate.add(p.userId);
       }
 
-      const currentCredits = userSnap.exists() ? (userSnap.data().credits || 0) : 0;
+      if (cleanEmail) {
+        const qEmail = query(usersRef, where('email', '==', cleanEmail));
+        const emailSnap = await getDocs(qEmail);
+        emailSnap.forEach((d) => docIdsToUpdate.add(d.id));
+      }
 
-      if (p.isAiKeySubscription) {
-        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-        await setDoc(targetDocRef, { aiKeySubActive: true, aiKeySubExpiresAt: expiresAt }, { merge: true });
-      } else if (p.isProSubscription) {
-        await setDoc(targetDocRef, { plan: 'pro', credits: currentCredits + 15 }, { merge: true });
-      } else {
-        await setDoc(targetDocRef, { credits: currentCredits + addCredits }, { merge: true });
+      for (const uid of docIdsToUpdate) {
+        const targetDocRef = doc(db, 'users', uid);
+        const userSnap = await getDoc(targetDocRef);
+        const currentCredits = userSnap.exists() ? (userSnap.data().credits || 0) : 0;
+
+        if (p.isAiKeySubscription) {
+          const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+          await setDoc(targetDocRef, { aiKeySubActive: true, aiKeySubExpiresAt: expiresAt }, { merge: true });
+        } else if (p.isProSubscription) {
+          await setDoc(targetDocRef, { plan: 'pro', credits: currentCredits + 15 }, { merge: true });
+        } else {
+          await setDoc(targetDocRef, { credits: currentCredits + addCredits }, { merge: true });
+        }
       }
     } catch (err) {
       console.error('Error crediting user in Firestore:', err);
