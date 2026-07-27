@@ -15,6 +15,7 @@ app.use(express.json({ limit: '10mb' }));
 
 // In-memory key rotation & persistent storage mock array
 let adminGeminiKeys: { id: string; key: string; name: string; isActive: boolean; usageCount: number; isQuotaExhausted?: boolean }[] = [];
+let adminSystemPrompts: { id: string; title: string; content: string; isActive: boolean; createdAt: string }[] = [];
 let currentKeyIndex = 0;
 
 let db: any = null;
@@ -70,6 +71,22 @@ async function loadAdminKeysFromFirestore() {
     }
   } catch (err) {
     console.warn('[DEVWEBIA] Error loading keys from Firestore:', err);
+  }
+}
+
+async function loadAdminPromptsFromFirestore() {
+  if (!db) return;
+  try {
+    const docRef = doc(db, 'admin_config', 'system_prompts');
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      if (Array.isArray(data.prompts)) {
+        adminSystemPrompts = data.prompts;
+      }
+    }
+  } catch (err) {
+    console.warn('[DEVWEBIA] Error loading admin prompts from Firestore:', err);
   }
 }
 
@@ -609,9 +626,17 @@ app.post('/api/generate-website', async (req, res) => {
       };
     }
 
+    await loadAdminPromptsFromFirestore();
+    let effectiveSystemPrompt = SYSTEM_WEB_GENERATOR_PROMPT;
+    const activeCustomPrompts = adminSystemPrompts.filter((p) => p.isActive);
+    if (activeCustomPrompts.length > 0) {
+      effectiveSystemPrompt += `\n\n[RÈGLES ET PROMPTS SYSTÈME STRICTS IMPOSÉS PAR L'ADMINISTRATEUR - À SUIVRE À 100%] :\n` +
+        activeCustomPrompts.map((p) => `- [${p.title}] : ${p.content}`).join('\n');
+    }
+
     const response = await generateWebsiteWithKeys(
       fullPrompt,
-      SYSTEM_WEB_GENERATOR_PROMPT,
+      effectiveSystemPrompt,
       responseSchema,
       userCustomKeyConfig
     );
@@ -911,6 +936,59 @@ app.post('/api/admin/keys/toggle', (req, res) => {
     target.isActive = !target.isActive;
   }
   res.json({ success: true, keys: adminGeminiKeys });
+});
+
+app.get('/api/admin/prompts', async (req, res) => {
+  await loadAdminPromptsFromFirestore();
+  res.json({ prompts: adminSystemPrompts });
+});
+
+app.post('/api/admin/prompts/sync', async (req, res) => {
+  const { prompts } = req.body;
+  if (Array.isArray(prompts)) {
+    adminSystemPrompts = prompts;
+    if (db) {
+      try {
+        await setDoc(doc(db, 'admin_config', 'system_prompts'), { prompts: adminSystemPrompts });
+      } catch (e) {
+        console.warn('Error saving prompts to Firestore', e);
+      }
+    }
+  }
+  res.json({ success: true, prompts: adminSystemPrompts });
+});
+
+app.post('/api/admin/prompts', async (req, res) => {
+  const { title, content } = req.body;
+  if (!content) return res.status(400).json({ error: 'Content is required' });
+  const newPrompt = {
+    id: 'prompt_' + Date.now(),
+    title: title || 'Règle Admin ' + (adminSystemPrompts.length + 1),
+    content,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+  };
+  adminSystemPrompts.push(newPrompt);
+  if (db) {
+    try {
+      await setDoc(doc(db, 'admin_config', 'system_prompts'), { prompts: adminSystemPrompts });
+    } catch (e) {}
+  }
+  res.json({ success: true, prompt: newPrompt, prompts: adminSystemPrompts });
+});
+
+app.post('/api/admin/prompts/toggle', async (req, res) => {
+  const { id } = req.body;
+  const target = adminSystemPrompts.find((p) => p.id === id);
+  if (target) {
+    target.isActive = !target.isActive;
+    if (db) {
+      try {
+        await setDoc(doc(db, 'admin_config', 'system_prompts'), { prompts: adminSystemPrompts });
+      } catch (e) {}
+    }
+  }
+  res.json({ success: true, prompts: adminSystemPrompts });
 });
 
 // Setup Vite / Production static middleware

@@ -34,6 +34,7 @@ import {
   SupportTicket,
   GeminiApiKey,
   CodeFile,
+  SystemPrompt,
 } from './types';
 import {
   getStoredUser,
@@ -136,7 +137,71 @@ export default function App() {
   const [payments, setPayments] = useState<PaymentRequest[]>(getStoredPayments);
   const [tickets, setTickets] = useState<SupportTicket[]>(getStoredTickets);
   const [geminiKeys, setGeminiKeys] = useState<GeminiApiKey[]>(getStoredGeminiKeys);
+  const [systemPrompts, setSystemPrompts] = useState<SystemPrompt[]>([]);
   const [dbUsers, setDbUsers] = useState<UserProfile[]>([]);
+
+  useEffect(() => {
+    fetch('/api/admin/prompts')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && Array.isArray(data.prompts)) {
+          setSystemPrompts(data.prompts);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleAddSystemPrompt = async (title: string, content: string) => {
+    try {
+      const res = await fetch('/api/admin/prompts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, content }),
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.prompts)) {
+        setSystemPrompts(data.prompts);
+      }
+    } catch (err) {
+      console.error('Error adding system prompt:', err);
+    }
+  };
+
+  const handleToggleSystemPrompt = async (id: string) => {
+    try {
+      const res = await fetch('/api/admin/prompts/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.prompts)) {
+        setSystemPrompts(data.prompts);
+      }
+    } catch (err) {
+      console.error('Error toggling system prompt:', err);
+    }
+  };
+
+  const handleUpdateProjectContent = (projectId: string, files: CodeFile[], title: string, description: string) => {
+    const updatedProjects = projects.map((p) => {
+      if (p.id === projectId) {
+        return {
+          ...p,
+          title,
+          description,
+          files,
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      return p;
+    });
+    setProjects(updatedProjects);
+    const target = updatedProjects.find((p) => p.id === projectId);
+    if (target) {
+      dbSaveProject(target).catch(console.error);
+    }
+  };
 
   // Sync Gemini Keys to LocalStorage and Backend Server
   useEffect(() => {
@@ -568,7 +633,7 @@ export default function App() {
                 }
               }
 
-              // Smart merge with HTML normalization: retain existing files and update index.html properly
+              // Smart merge with HTML normalization: retain non-html files, clean up old html files when new html is returned, and update index.html properly
               const mergedFilesMap = new Map<string, CodeFile>();
               let pExisting: CodeFile[] = [];
               if (Array.isArray(p.files)) {
@@ -577,15 +642,23 @@ export default function App() {
                 try { pExisting = JSON.parse(p.files); } catch { pExisting = []; }
               }
 
+              const hasNewHtml = newOrUpdatedFiles.some((f) => f && f.name && f.name.toLowerCase().endsWith('.html'));
+
               pExisting.forEach((f) => {
                 if (f && f.name) {
-                  mergedFilesMap.set(f.name.trim().toLowerCase(), f);
+                  const lower = f.name.trim().toLowerCase();
+                  if (hasNewHtml && lower.endsWith('.html')) {
+                    // Skip old html files to prevent stale file duplication and preview sync mismatch
+                    return;
+                  }
+                  mergedFilesMap.set(lower, f);
                 }
               });
+
               newOrUpdatedFiles.forEach((f) => {
                 if (f && f.name) {
                   const lowerName = f.name.trim().toLowerCase();
-                  if (lowerName.endsWith('.html') && lowerName !== 'index.html') {
+                  if (lowerName.endsWith('.html')) {
                     mergedFilesMap.set('index.html', {
                       ...f,
                       name: 'index.html',
@@ -1200,6 +1273,7 @@ export default function App() {
         allProjects={projects}
         tickets={tickets}
         geminiKeys={geminiKeys}
+        systemPrompts={systemPrompts}
         onApprovePayment={handleApprovePayment}
         onRejectPayment={handleRejectPayment}
         onUpdateUserCredits={handleUpdateUserCredits}
@@ -1207,6 +1281,9 @@ export default function App() {
         onAddGeminiKey={handleAddGeminiKey}
         onToggleGeminiKey={handleToggleGeminiKey}
         onReplyTicket={handleReplyTicket}
+        onAddSystemPrompt={handleAddSystemPrompt}
+        onToggleSystemPrompt={handleToggleSystemPrompt}
+        onUpdateProjectContent={handleUpdateProjectContent}
         onSelectProjectAndPreview={(projectId) => {
           handleSelectProject(projectId);
           setActiveTab('preview');

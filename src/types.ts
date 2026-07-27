@@ -142,6 +142,14 @@ export interface GeminiApiKey {
   isQuotaExhausted?: boolean;
 }
 
+export interface SystemPrompt {
+  id: string;
+  title: string;
+  content: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
 export interface PlatformStats {
   totalUsers: number;
   totalProjects: number;

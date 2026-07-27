@@ -21,7 +21,7 @@ import {
   ShieldAlert,
   RefreshCw,
 } from 'lucide-react';
-import { PaymentRequest, UserProfile, GeminiApiKey, Project, SupportTicket } from '../types';
+import { PaymentRequest, UserProfile, GeminiApiKey, Project, SupportTicket, SystemPrompt, CodeFile } from '../types';
 
 interface AdminPanelModalProps {
   user: UserProfile;
@@ -32,6 +32,7 @@ interface AdminPanelModalProps {
   allProjects: Project[];
   tickets: SupportTicket[];
   geminiKeys: GeminiApiKey[];
+  systemPrompts?: SystemPrompt[];
   onApprovePayment: (paymentId: string) => void;
   onRejectPayment: (paymentId: string) => void;
   onUpdateUserCredits: (userId: string, newCredits: number) => void;
@@ -39,6 +40,9 @@ interface AdminPanelModalProps {
   onAddGeminiKey: (name: string, key: string) => void;
   onToggleGeminiKey: (keyId: string) => void;
   onReplyTicket: (ticketId: string, replyText: string) => void;
+  onAddSystemPrompt?: (title: string, content: string) => void;
+  onToggleSystemPrompt?: (id: string) => void;
+  onUpdateProjectContent?: (projectId: string, files: CodeFile[], title: string, description: string) => void;
   onSelectProjectAndPreview?: (projectId: string) => void;
   onDeleteProject?: (projectId: string) => void;
   onRunAuditPro?: () => Promise<{ auditedCount: number; resetUsers: string[] }>;
@@ -54,6 +58,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   allProjects,
   tickets,
   geminiKeys,
+  systemPrompts = [],
   onApprovePayment,
   onRejectPayment,
   onUpdateUserCredits,
@@ -61,12 +66,15 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   onAddGeminiKey,
   onToggleGeminiKey,
   onReplyTicket,
+  onAddSystemPrompt,
+  onToggleSystemPrompt,
+  onUpdateProjectContent,
   onSelectProjectAndPreview,
   onDeleteProject,
   onRunAuditPro,
   onToggleAiKeySub,
 }) => {
-  const [activeTab, setActiveTab] = useState<'payments' | 'users' | 'support' | 'keys'>('payments');
+  const [activeTab, setActiveTab] = useState<'payments' | 'users' | 'support' | 'keys' | 'prompts' | 'content'>('payments');
   const [isAuditing, setIsAuditing] = useState(false);
   const [auditMessage, setAuditMessage] = useState<string | null>(null);
   const [deletingProjId, setDeletingProjId] = useState<string | null>(null);
@@ -74,6 +82,14 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [newKeyValue, setNewKeyValue] = useState('');
   const [replyInputs, setReplyInputs] = useState<{ [ticketId: string]: string }>({});
   const [ticketFilter, setTicketFilter] = useState<'all' | 'open' | 'resolved'>('all');
+
+  // Prompts and Content editing state
+  const [newPromptTitle, setNewPromptTitle] = useState('');
+  const [newPromptContent, setNewPromptContent] = useState('');
+  const [editingProjId, setEditingProjId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editHtmlContent, setEditHtmlContent] = useState('');
 
   if (!isOpen) return null;
 
@@ -150,7 +166,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
         </div>
 
         {/* Tabs */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-800 text-xs font-bold">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-800 text-xs font-bold">
           <button
             onClick={() => setActiveTab('payments')}
             className={`py-2.5 px-3 rounded-xl transition-all flex items-center justify-center gap-2 ${
@@ -177,7 +193,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
             }`}
           >
             <Users className="w-4 h-4 flex-shrink-0" />
-            <span className="truncate">Utilisateurs & Sites</span>
+            <span className="truncate">Utilisateurs</span>
           </button>
 
           <button
@@ -189,7 +205,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
             }`}
           >
             <Headphones className="w-4 h-4 flex-shrink-0" />
-            <span className="truncate">Support Messages</span>
+            <span className="truncate">Support</span>
             {openTickets.length > 0 && (
               <span className="bg-purple-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0">
                 {openTickets.length}
@@ -207,6 +223,35 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
           >
             <Key className="w-4 h-4 flex-shrink-0" />
             <span className="truncate">Clés Gemini</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('prompts')}
+            className={`py-2.5 px-3 rounded-xl transition-all flex items-center justify-center gap-2 ${
+              activeTab === 'prompts'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <FileCode className="w-4 h-4 flex-shrink-0" />
+            <span className="truncate">Prompts IA</span>
+            {systemPrompts.filter(p => p.isActive).length > 0 && (
+              <span className="bg-emerald-500 text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0">
+                {systemPrompts.filter(p => p.isActive).length}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('content')}
+            className={`py-2.5 px-3 rounded-xl transition-all flex items-center justify-center gap-2 ${
+              activeTab === 'content'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Globe className="w-4 h-4 flex-shrink-0" />
+            <span className="truncate">Éditeur Sites</span>
           </button>
         </div>
 
@@ -738,6 +783,206 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* TAB 5: Prompts Système & Règles IA */}
+        {activeTab === 'prompts' && (
+          <div className="space-y-4 text-xs">
+            <div className="text-slate-400">
+              Atsangano eto ireo <strong>Prompts Système & Règles IA</strong> izay hibaiko sy hifehy ny IA 100% mba tsy hanao fahadisoana (ohatra: tsy hamono ny kaody efa nisy, hampiditra options rehetra, sns).
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!newPromptContent.trim()) return;
+                if (onAddSystemPrompt) {
+                  onAddSystemPrompt(newPromptTitle || `Règle Admin ${systemPrompts.length + 1}`, newPromptContent.trim());
+                }
+                setNewPromptTitle('');
+                setNewPromptContent('');
+              }}
+              className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3"
+            >
+              <div className="font-bold text-white">Ajouter un nouveau Prompt / Règle stricte pour l'IA :</div>
+              <input
+                type="text"
+                placeholder="Titre de la règle (ex: Règle anti-suppression de code)"
+                value={newPromptTitle}
+                onChange={(e) => setNewPromptTitle(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white outline-none focus:border-indigo-500"
+              />
+              <textarea
+                rows={3}
+                placeholder="Contenu de la consigne stricte (ex: Tu dois obligatoirement préserver tous les fichiers existants et ne jamais supprimer le header/footer...)"
+                value={newPromptContent}
+                onChange={(e) => setNewPromptContent(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-indigo-500 resize-none"
+              />
+              <button
+                type="submit"
+                className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all flex items-center justify-center gap-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Enregistrer et Appliquer à l'IA (100% Respect)</span>
+              </button>
+            </form>
+
+            <div className="space-y-2">
+              <div className="font-bold text-slate-300">Règles & Prompts Système Actifs ({systemPrompts.length}) :</div>
+              {systemPrompts.length === 0 ? (
+                <div className="p-4 text-slate-500 bg-slate-950 rounded-xl border border-slate-800">
+                  Tsy misy prompt na règle spécifique voarindra amin'izao fotoana izao.
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-72 overflow-y-auto">
+                  {systemPrompts.map((p) => (
+                    <div key={p.id} className="bg-slate-950 border border-slate-800 p-3.5 rounded-xl space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="font-bold text-white text-xs">{p.title}</div>
+                        <button
+                          onClick={() => onToggleSystemPrompt && onToggleSystemPrompt(p.id)}
+                          className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                            p.isActive
+                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                              : 'bg-slate-800 text-slate-500'
+                          }`}
+                        >
+                          {p.isActive ? 'Mandrehitra (Active)' : 'Nijanona (Inactive)'}
+                        </button>
+                      </div>
+                      <div className="text-slate-300 text-[11px] font-mono bg-slate-900 p-2.5 rounded-lg border border-slate-800/80 whitespace-pre-wrap">
+                        {p.content}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 6: Éditeur de Site & Contenu Global (Header à Footer) */}
+        {activeTab === 'content' && (
+          <div className="space-y-4 text-xs">
+            <div className="text-slate-400">
+              <strong>Editeur de Contenu Global (Header à Footer)</strong> : Ovay sy amboary mivantana ny lohateny, ny filazalazana, ary ny kaody HTML/CSS an'ireo tranonkala rehetra namboarina ao amin'ny système.
+            </div>
+
+            {allProjects.length === 0 ? (
+              <div className="p-8 text-center text-slate-500 bg-slate-950 rounded-2xl border border-slate-800">
+                Tsy misy tranonkala ao amin'ny rafitra amin'izao fotoana izao.
+              </div>
+            ) : (
+              <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
+                {allProjects.map((proj) => {
+                  const isEditing = editingProjId === proj.id;
+                  const idxFile = proj.files.find((f) => f.name === 'index.html') || proj.files[0];
+
+                  return (
+                    <div key={proj.id} className="bg-slate-950 border border-slate-800 p-4 rounded-2xl space-y-3">
+                      <div className="flex items-center justify-between border-b border-slate-900 pb-2">
+                        <div>
+                          <div className="font-bold text-white text-sm flex items-center gap-2">
+                            <Globe className="w-4 h-4 text-indigo-400" />
+                            <span>{proj.title}</span>
+                          </div>
+                          <div className="text-[10px] text-slate-500">
+                            Propriétaire / Email : <strong className="text-indigo-300">{proj.userEmail || proj.userId}</strong>
+                          </div>
+                        </div>
+
+                        {!isEditing ? (
+                          <button
+                            onClick={() => {
+                              setEditingProjId(proj.id);
+                              setEditTitle(proj.title);
+                              setEditDescription(proj.description);
+                              setEditHtmlContent(idxFile ? idxFile.content : '');
+                            }}
+                            className="px-3 py-1.5 bg-indigo-600/30 hover:bg-indigo-600 text-indigo-200 hover:text-white border border-indigo-500/40 rounded-xl font-bold transition-all text-xs flex items-center gap-1"
+                          >
+                            <span>Ovay (Modifier Header-Footer)</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setEditingProjId(null);
+                            }}
+                            className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-xl font-bold text-xs"
+                          >
+                            Hanafoana
+                          </button>
+                        )}
+                      </div>
+
+                      {!isEditing ? (
+                        <div className="text-slate-400 text-[11px] line-clamp-2">
+                          {proj.description || 'Tsy misy filazalazana.'} — ({proj.files.length} fichiers)
+                        </div>
+                      ) : (
+                        <div className="space-y-3 pt-2">
+                          <div>
+                            <label className="block text-slate-300 font-bold mb-1">Titre du Site :</label>
+                            <input
+                              type="text"
+                              value={editTitle}
+                              onChange={(e) => setEditTitle(e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white outline-none focus:border-indigo-500 text-xs"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-slate-300 font-bold mb-1">Description / Résumé :</label>
+                            <input
+                              type="text"
+                              value={editDescription}
+                              onChange={(e) => setEditDescription(e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white outline-none focus:border-indigo-500 text-xs"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-slate-300 font-bold mb-1">Contenu HTML (Header, Sections, Footer complets) :</label>
+                            <textarea
+                              rows={8}
+                              value={editHtmlContent}
+                              onChange={(e) => setEditHtmlContent(e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-emerald-300 font-mono text-[11px] outline-none focus:border-indigo-500 resize-y"
+                            />
+                          </div>
+
+                          <div className="flex justify-end gap-2 pt-2">
+                            <button
+                              onClick={() => {
+                                if (onUpdateProjectContent) {
+                                  const newFiles = proj.files.map((f) => {
+                                    if (f.name === 'index.html' || f === idxFile) {
+                                      return { ...f, content: editHtmlContent };
+                                    }
+                                    return f;
+                                  });
+                                  if (!newFiles.some((f) => f.name === 'index.html')) {
+                                    newFiles.unshift({ name: 'index.html', language: 'html', content: editHtmlContent });
+                                  }
+                                  onUpdateProjectContent(proj.id, newFiles, editTitle, editDescription);
+                                }
+                                setEditingProjId(null);
+                              }}
+                              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-md transition-all text-xs flex items-center gap-1.5"
+                            >
+                              <Check className="w-4 h-4" />
+                              <span>Tehirizo sy Sync (Save & Sync)</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
