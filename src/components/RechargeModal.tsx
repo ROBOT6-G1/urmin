@@ -24,6 +24,7 @@ interface RechargeModalProps {
   onRefreshPayments?: () => Promise<void>;
   onApplyPayment?: (payment: PaymentRequest) => Promise<void>;
   initialType?: 'credits' | 'ai_key_sub';
+  initialTab?: 'buy' | 'history';
 }
 
 export const RechargeModal: React.FC<RechargeModalProps> = ({
@@ -35,14 +36,22 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
   onRefreshPayments,
   onApplyPayment,
   initialType = 'credits',
+  initialTab = 'buy',
 }) => {
-  const [activeTab, setActiveTab] = useState<'buy' | 'history'>('buy');
-  const [paymentType, setPaymentType] = useState<'credits' | 'ai_key_sub'>(initialType);
+  const [activeTab, setActiveTab] = React.useState<'buy' | 'history'>(initialTab);
+  const [paymentType, setPaymentType] = React.useState<'credits' | 'ai_key_sub'>(initialType);
   const [senderPhone, setSenderPhone] = useState<string>('');
   const [transactionRef, setTransactionRef] = useState<string>('');
   const [submittedSuccess, setSubmittedSuccess] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [successMsg, setSuccessMsg] = useState<string>('');
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialTab);
+      setPaymentType(initialType);
+    }
+  }, [isOpen, initialTab, initialType]);
 
   if (!isOpen) return null;
 

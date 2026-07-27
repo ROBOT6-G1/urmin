@@ -94,7 +94,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   if (!isOpen) return null;
 
   // Strict email lock as per specification!
-  if (user.email !== 'horlandobe@gmail.com') {
+  if (user.email !== 'horlandobe@gmail.com' && user.email !== 'eventuelleboutique@gmail.com') {
     return (
       <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
         <div className="bg-slate-900 border border-rose-500/50 rounded-3xl max-w-md w-full p-8 text-center space-y-4 shadow-2xl relative">

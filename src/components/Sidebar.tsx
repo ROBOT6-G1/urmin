@@ -25,6 +25,7 @@ import {
   Check,
   Key,
   MapPin,
+  History,
 } from 'lucide-react';
 import { Project, UserProfile } from '../types';
 
@@ -37,6 +38,7 @@ interface SidebarProps {
   onSelectProject: (projectId: string) => void;
   onNewProject: () => void;
   onOpenRecharge: () => void;
+  onOpenPaymentHistory?: () => void;
   onOpenCustomAiKey?: () => void;
   onOpenConnectedApps: () => void;
   onOpenFaq: () => void;
@@ -64,6 +66,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectProject,
   onNewProject,
   onOpenRecharge,
+  onOpenPaymentHistory,
   onOpenCustomAiKey,
   onOpenConnectedApps,
   onOpenFaq,
@@ -81,7 +84,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onPreviewProject,
   onPublishProject,
 }) => {
-  const isAdmin = user.email === 'horlandobe@gmail.com';
+  const isAdmin = user.email === 'horlandobe@gmail.com' || user.email === 'eventuelleboutique@gmail.com';
   const [searchHistory, setSearchHistory] = useState('');
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
 
@@ -359,6 +362,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </span>
             </button>
 
+            {/* 👉 Historique de paiement */}
+            <button
+              onClick={() => {
+                if (onOpenPaymentHistory) onOpenPaymentHistory();
+                onClose();
+              }}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent hover:border-slate-700 transition-all group"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
+                  <History className="w-4 h-4" />
+                </div>
+                <span>Historique de paiement</span>
+              </div>
+              <span className="text-[10px] bg-indigo-500/20 text-indigo-300 font-bold px-2 py-0.5 rounded-full">
+                Hanamarina
+              </span>
+            </button>
+
             {/* 👉 Application connectée */}
             <button
               onClick={() => {
@@ -539,6 +561,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
             )}
           </div>
+
+          {/* Payment History Action */}
+          <button
+            type="button"
+            onClick={() => {
+              if (onOpenPaymentHistory) onOpenPaymentHistory();
+              onClose();
+            }}
+            className="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 hover:bg-slate-800/40 text-xs text-slate-300 hover:text-white transition-all font-bold"
+          >
+            <div className="flex items-center gap-2">
+              <History className="w-4 h-4 text-indigo-400" />
+              <span>Dossier Paiements</span>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+          </button>
 
           <div className="flex items-center justify-between text-xs pt-1">
             <div className="truncate text-slate-400 text-[11px]" title={user.email}>

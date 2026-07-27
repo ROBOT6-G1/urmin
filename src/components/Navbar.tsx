@@ -42,7 +42,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNewProject,
   onToggleSidebar,
 }) => {
-  const isAdmin = user.email === 'horlandobe@gmail.com';
+  const isAdmin = user.email === 'horlandobe@gmail.com' || user.email === 'eventuelleboutique@gmail.com';
 
   return (
     <header className="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-40 shadow-xl">

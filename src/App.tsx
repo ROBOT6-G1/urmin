@@ -120,7 +120,14 @@ export default function App() {
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isCustomAiKeyOpen, setIsCustomAiKeyOpen] = useState(false);
   const [rechargeInitialType, setRechargeInitialType] = useState<'credits' | 'ai_key_sub'>('credits');
+  const [rechargeInitialTab, setRechargeInitialTab] = useState<'buy' | 'history'>('buy');
   const [resetOobCode, setResetOobCode] = useState<string | null>(null);
+
+  const handleOpenRecharge = (type: 'credits' | 'ai_key_sub' = 'credits', tab: 'buy' | 'history' = 'buy') => {
+    setRechargeInitialType(type);
+    setRechargeInitialTab(tab);
+    setIsRechargeOpen(true);
+  };
 
   // Detect Firebase password reset code in URL query string
   useEffect(() => {
@@ -557,8 +564,7 @@ export default function App() {
     const isUsingCustomKey = Boolean(user.useCustomKey && user.aiKeySubActive && user.customGeminiApiKey);
 
     if (!isUsingCustomKey && user.credits <= 0) {
-      setRechargeInitialType('credits');
-      setIsRechargeOpen(true);
+      handleOpenRecharge('credits', 'buy');
       return;
     }
 
@@ -1201,7 +1207,7 @@ export default function App() {
         previewSubTab={previewSubTab}
         setActiveTab={setActiveTab}
         setPreviewSubTab={setPreviewSubTab}
-        onOpenRecharge={() => setIsRechargeOpen(true)}
+        onOpenRecharge={() => handleOpenRecharge('credits', 'buy')}
         onOpenAdmin={() => setIsAdminOpen(true)}
         onOpenAuth={() => setIsAuthOpen(true)}
         onOpenGuide={() => setIsGuideOpen(true)}
@@ -1220,10 +1226,8 @@ export default function App() {
           onClose={() => setIsSidebarOpen(false)}
           onSelectProject={handleSelectProject}
           onNewProject={handleNewProject}
-          onOpenRecharge={() => {
-            setRechargeInitialType('credits');
-            setIsRechargeOpen(true);
-          }}
+          onOpenRecharge={() => handleOpenRecharge('credits', 'buy')}
+          onOpenPaymentHistory={() => handleOpenRecharge('credits', 'history')}
           onOpenCustomAiKey={() => setIsCustomAiKeyOpen(true)}
           onOpenConnectedApps={() => setIsConnectedAppsOpen(true)}
           onOpenFaq={() => setIsFaqOpen(true)}
@@ -1255,7 +1259,7 @@ export default function App() {
                 setActiveTab('preview');
                 setPreviewSubTab('web');
               }}
-              onOpenRecharge={() => setIsRechargeOpen(true)}
+              onOpenRecharge={() => handleOpenRecharge('credits', 'buy')}
               isGenerating={isGenerating}
               onUpdateFiles={handleUpdateProjectFiles}
             />
@@ -1296,6 +1300,7 @@ export default function App() {
         onRefreshPayments={handleManualSyncPayments}
         onApplyPayment={handleApplyPayment}
         initialType={rechargeInitialType}
+        initialTab={rechargeInitialTab}
       />
 
       <CustomAiKeyModal
@@ -1305,8 +1310,7 @@ export default function App() {
         onUpdateUserKey={(key, useKey, model) => handleUpdateCustomAiKeySettings(key, model, useKey)}
         onOpenRechargeForAiKey={() => {
           setIsCustomAiKeyOpen(false);
-          setRechargeInitialType('ai_key_sub');
-          setIsRechargeOpen(true);
+          handleOpenRecharge('ai_key_sub', 'buy');
         }}
       />
 
