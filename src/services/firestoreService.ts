@@ -77,8 +77,20 @@ export async function dbSyncUser(userProfile: UserProfile): Promise<UserProfile>
         firebaseConnected: Boolean(firebaseProjectId.trim() && firebaseApiKey.trim()),
       };
       
-      // Update DB to ensure clean consistency
-      await setDoc(userDocRef, merged, { merge: true });
+      // Update DB ONLY if there's a real difference to avoid write quota exhaustion!
+      const hasDiff =
+        dbUser.plan !== merged.plan ||
+        dbUser.credits !== merged.credits ||
+        dbUser.githubToken !== merged.githubToken ||
+        dbUser.githubUsername !== merged.githubUsername ||
+        dbUser.vercelToken !== merged.vercelToken ||
+        dbUser.firebaseProjectId !== merged.firebaseProjectId ||
+        dbUser.firebaseApiKey !== merged.firebaseApiKey ||
+        JSON.stringify(dbUser.appliedPaymentIds || []) !== JSON.stringify(merged.appliedPaymentIds || []);
+
+      if (hasDiff) {
+        await setDoc(userDocRef, merged, { merge: true });
+      }
       return merged;
     } else {
       const githubToken = userProfile.githubToken || '';

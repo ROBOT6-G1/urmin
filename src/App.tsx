@@ -319,52 +319,6 @@ export default function App() {
             });
             return updated;
           });
-
-          // Check if any payment belonging to current user is approved and not yet applied
-          if (!isAdmin && user?.id) {
-            const userPayments = dbPayments.filter(
-              (p) =>
-                p.status === 'approved' &&
-                (p.userId === user.id || (p.userEmail && user.email && p.userEmail.toLowerCase() === user.email.toLowerCase()))
-            );
-
-            const appliedIds = user.appliedPaymentIds || [];
-            let needsUserUpdate = false;
-            let addedCredits = 0;
-            let makePro = false;
-            let makeAiSub = false;
-            const newAppliedIds = [...appliedIds];
-
-            for (const p of userPayments) {
-              if (!appliedIds.includes(p.id)) {
-                needsUserUpdate = true;
-                newAppliedIds.push(p.id);
-                if (p.isAiKeySubscription) {
-                  makeAiSub = true;
-                } else if (p.isProSubscription) {
-                  makePro = true;
-                  addedCredits += 15;
-                } else {
-                  addedCredits += (p.creditsRequested || 40);
-                }
-              }
-            }
-
-            if (needsUserUpdate) {
-              setUser((prev) => {
-                const updated = {
-                  ...prev,
-                  plan: makePro ? 'pro' : prev.plan,
-                  credits: makeAiSub ? prev.credits : (prev.credits + addedCredits),
-                  aiKeySubActive: makeAiSub ? true : prev.aiKeySubActive,
-                  appliedPaymentIds: newAppliedIds,
-                };
-                saveUser(updated);
-                dbSaveUser(updated).catch(console.error);
-                return updated;
-              });
-            }
-          }
         }
 
         // D. Sync Tickets
@@ -816,6 +770,66 @@ export default function App() {
     };
     setPayments((prev) => [newPayment, ...prev]);
     dbSavePayment(newPayment).catch(console.error);
+  };
+
+  const handleManualSyncPayments = async () => {
+    if (!user?.id || user.id === 'usr_client_default') return;
+    try {
+      const isAdmin = user.email === 'horlandobe@gmail.com' || user.email === 'eventuelleboutique@gmail.com';
+      const dbPayments = await dbFetchPayments(user.id, user.email, isAdmin);
+      if (dbPayments.length > 0) {
+        setPayments((prev) => {
+          const updated = [...dbPayments];
+          prev.forEach((lp) => {
+            if (!dbPayments.some((dp) => dp.id === lp.id)) {
+              updated.push(lp);
+              dbSavePayment(lp).catch((e) => console.error('Error uploading local payment to DB:', e));
+            }
+          });
+          return updated;
+        });
+      }
+    } catch (err) {
+      console.error('Error manually syncing payments:', err);
+    }
+  };
+
+  const handleApplyPayment = async (p: PaymentRequest) => {
+    if (!user || !user.id) return;
+    const appliedIds = user.appliedPaymentIds || [];
+    if (appliedIds.includes(p.id)) return;
+
+    const addCredits = p.isProSubscription ? 15 : (p.creditsRequested || 40);
+    const updatedAppliedIds = [...appliedIds, p.id];
+
+    let makePro = false;
+    let makeAiSub = false;
+    if (p.isAiKeySubscription) {
+      makeAiSub = true;
+    } else if (p.isProSubscription) {
+      makePro = true;
+    }
+
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated = {
+        ...prev,
+        plan: makePro ? ('pro' as const) : prev.plan,
+        credits: makeAiSub ? prev.credits : (prev.credits + addCredits),
+        aiKeySubActive: makeAiSub ? true : prev.aiKeySubActive,
+        appliedPaymentIds: updatedAppliedIds,
+      };
+      saveUser(updated);
+      dbSaveUser(updated).catch(console.error);
+      return updated;
+    });
+
+    // Update locally in-memory list
+    setPayments((prev) =>
+      prev.map((item) =>
+        item.id === p.id ? { ...item, status: 'approved' as const } : item
+      )
+    );
   };
 
   // Admin Actions
@@ -1275,9 +1289,12 @@ export default function App() {
 
       <RechargeModal
         user={user}
+        payments={payments}
         isOpen={isRechargeOpen}
         onClose={() => setIsRechargeOpen(false)}
         onSubmitPayment={handleSubmitPayment}
+        onRefreshPayments={handleManualSyncPayments}
+        onApplyPayment={handleApplyPayment}
         initialType={rechargeInitialType}
       />
 
