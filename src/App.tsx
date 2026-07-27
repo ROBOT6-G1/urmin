@@ -568,7 +568,7 @@ export default function App() {
                 }
               }
 
-              // Smart merge: retain all existing project files and update or add the modified files
+              // Smart merge with HTML normalization: retain existing files and update index.html properly
               const mergedFilesMap = new Map<string, CodeFile>();
               let pExisting: CodeFile[] = [];
               if (Array.isArray(p.files)) {
@@ -584,7 +584,16 @@ export default function App() {
               });
               newOrUpdatedFiles.forEach((f) => {
                 if (f && f.name) {
-                  mergedFilesMap.set(f.name.trim().toLowerCase(), f);
+                  const lowerName = f.name.trim().toLowerCase();
+                  if (lowerName.endsWith('.html') && lowerName !== 'index.html') {
+                    mergedFilesMap.set('index.html', {
+                      ...f,
+                      name: 'index.html',
+                      language: 'html'
+                    });
+                  } else {
+                    mergedFilesMap.set(lowerName, f);
+                  }
                 }
               });
               const mergedFiles = Array.from(mergedFilesMap.values());

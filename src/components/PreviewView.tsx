@@ -144,7 +144,7 @@ export const PreviewView: React.FC<PreviewViewProps> = ({
 
   // Combine HTML + CSS + JS into single bundle for iframe preview if separate
   const getCombinedHtml = () => {
-    const htmlFile = files.find((f: any) => f && f.name && f.name.endsWith('.html')) || files[0];
+    const htmlFile = files.find((f: any) => f && f.name && f.name.toLowerCase() === 'index.html') || files.find((f: any) => f && f.name && f.name.endsWith('.html')) || files[0];
     const cssFile = files.find((f: any) => f && f.name && f.name.endsWith('.css'));
     const jsFile = files.find((f: any) => f && f.name && f.name.endsWith('.js'));
 
@@ -160,6 +160,88 @@ export const PreviewView: React.FC<PreviewViewProps> = ({
     // Inject JS if present and not already embedded
     if (jsFile && !content.includes(jsFile.content.substring(0, 20))) {
       content = content.replace('</body>', `<script>${jsFile.content}</script></body>`);
+    }
+
+    // Check for location.json or project.location injection
+    let locationInfo: any = null;
+    const locFile = files.find((f: any) => f && f.name === 'location.json');
+    if (locFile && locFile.content) {
+      try {
+        locationInfo = JSON.parse(locFile.content);
+      } catch (e) {}
+    }
+    if (!locationInfo && project.location) {
+      locationInfo = project.location;
+    }
+
+    if (locationInfo && (locationInfo.address || locationInfo.name || locationInfo.city)) {
+      const addressKey = locationInfo.address || '';
+      if (addressKey && !content.includes(addressKey)) {
+        let mapsHtml = '';
+        if (locationInfo.googleMapsEmbed) {
+          if (locationInfo.googleMapsEmbed.trim().startsWith('<iframe')) {
+            mapsHtml = locationInfo.googleMapsEmbed;
+          } else {
+            const embedUrl = locationInfo.googleMapsEmbed.startsWith('http')
+              ? locationInfo.googleMapsEmbed
+              : `https://maps.google.com/maps?q=${encodeURIComponent(locationInfo.name + ' ' + locationInfo.address + ' ' + locationInfo.city)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+            mapsHtml = `<iframe src="${embedUrl}" width="100%" height="320" style="border:0;border-radius:12px;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>`;
+          }
+        } else {
+          const defaultQuery = encodeURIComponent(`${locationInfo.name || project.title} ${locationInfo.address} ${locationInfo.city} ${locationInfo.country || 'Madagascar'}`);
+          mapsHtml = `<iframe src="https://maps.google.com/maps?q=${defaultQuery}&t=&z=15&ie=UTF8&iwloc=&output=embed" width="100%" height="320" style="border:0;border-radius:12px;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>`;
+        }
+
+        const locationSection = `<section id="devwebia-injected-location" style="background:#0f172a;color:#f8fafc;padding:60px 20px;font-family:sans-serif;border-top:1px solid #1e293b;margin-top:40px;">
+  <div style="max-width:1200px;margin:0 auto;">
+    <div style="text-align:center;margin-bottom:40px;">
+      <span style="background:rgba(99,102,241,0.2);color:#818cf8;padding:6px 14px;border-radius:9999px;font-size:12px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;">📍 Toerana & Localisation</span>
+      <h2 style="font-size:32px;font-weight:800;margin-top:12px;color:#ffffff;">Tongasoa eto amin'ny Foibenay</h2>
+      <p style="color:#94a3b8;font-size:15px;max-width:600px;margin:8px auto 0;">Tsidiho izahay na mifandraisa aminay mivantana amin'ny alalan'ny adiresy sy ny laharana eto ambany.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:30px;align-items:center;">
+      <div style="background:rgba(30,41,59,0.7);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:30px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.3);">
+        <h3 style="font-size:22px;font-weight:700;color:#ffffff;margin-bottom:20px;">${locationInfo.name || project.title}</h3>
+        <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:16px;">
+          <span style="font-size:20px;">📍</span>
+          <div>
+            <strong style="display:block;color:#f8fafc;font-size:14px;">Adiresy :</strong>
+            <span style="color:#94a3b8;font-size:14px;">${locationInfo.address}, ${locationInfo.city} ${locationInfo.postalCode || ''} (${locationInfo.country || 'Madagascar'})</span>
+          </div>
+        </div>
+        ${locationInfo.phone ? `
+        <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:16px;">
+          <span style="font-size:20px;">📞</span>
+          <div>
+            <strong style="display:block;color:#f8fafc;font-size:14px;">Telefaona / WhatsApp :</strong>
+            <a href="https://wa.me/${locationInfo.phone.replace(/[^0-9]/g, '')}" target="_blank" style="color:#38bdf8;text-decoration:none;font-size:14px;font-weight:600;">${locationInfo.phone}</a>
+          </div>
+        </div>` : ''}
+        ${locationInfo.openingHours ? `
+        <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:16px;">
+          <span style="font-size:20px;">⏰</span>
+          <div>
+            <strong style="display:block;color:#f8fafc;font-size:14px;">Ora Fisokafana :</strong>
+            <span style="color:#94a3b8;font-size:14px;">${locationInfo.openingHours}</span>
+          </div>
+        </div>` : ''}
+        ${locationInfo.notes ? `
+        <div style="display:flex;align-items:flex-start;gap:14px;">
+          <span style="font-size:20px;">ℹ️</span>
+          <div>
+            <strong style="display:block;color:#f8fafc;font-size:14px;">Fanamarihana :</strong>
+            <span style="color:#94a3b8;font-size:13px;">${locationInfo.notes}</span>
+          </div>
+        </div>` : ''}
+      </div>
+      <div style="background:rgba(30,41,59,0.7);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:16px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.3);">
+        ${mapsHtml}
+      </div>
+    </div>
+  </div>
+</section>`;
+        content = content.replace('</body>', `${locationSection}</body>`);
+      }
     }
 
     // Free plan watermark badge injection (Vita amin'i DEVWEBIA + bouton X)
