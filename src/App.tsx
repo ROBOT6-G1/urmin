@@ -258,9 +258,6 @@ export default function App() {
 
   useEffect(() => {
     saveUser(user);
-    if (user && user.id && user.id !== 'usr_client_default') {
-      dbSaveUser(user).catch(console.error);
-    }
   }, [user]);
 
   useEffect(() => {
@@ -315,33 +312,47 @@ export default function App() {
         // C. Sync Payments
         const isAdmin = user.email === 'horlandobe@gmail.com' || user.email === 'eventuelleboutique@gmail.com';
         const dbPayments = await dbFetchPayments(user.id, user.email, isAdmin);
-        if (dbPayments.length > 0) {
-          setPayments((prev) => {
-            const updated = [...dbPayments];
-            prev.forEach((lp) => {
-              if (!dbPayments.some((dp) => dp.id === lp.id)) {
-                updated.push(lp);
-                dbSavePayment(lp).catch((e) => console.error('Error uploading local payment to DB:', e));
-              }
-            });
-            return updated;
+        setPayments((prev) => {
+          const mergedMap = new Map<string, PaymentRequest>();
+          dbPayments.forEach((dp) => {
+            mergedMap.set(dp.id, dp);
           });
-        }
+          prev.forEach((lp) => {
+            if (lp.id === 'pay_101' && dbPayments.length > 0) return;
+            const isMyPayment = lp.userId === user.id || (user.email && lp.userEmail && lp.userEmail.toLowerCase() === user.email.toLowerCase());
+            if (isAdmin || isMyPayment) {
+              if (!mergedMap.has(lp.id)) {
+                mergedMap.set(lp.id, lp);
+                if (lp.id !== 'pay_101' && isMyPayment) {
+                  dbSavePayment(lp).catch((e) => console.error('Error uploading local payment to DB:', e));
+                }
+              }
+            }
+          });
+          return Array.from(mergedMap.values()).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        });
 
         // D. Sync Tickets
         const dbTickets = await dbFetchTickets(user.id, user.email, isAdmin);
-        if (dbTickets.length > 0) {
-          setTickets((prev) => {
-            const updated = [...dbTickets];
-            prev.forEach((lt) => {
-              if (!dbTickets.some((dt) => dt.id === lt.id)) {
-                updated.push(lt);
-                dbSaveTicket(lt).catch((e) => console.error('Error uploading local ticket to DB:', e));
-              }
-            });
-            return updated;
+        setTickets((prev) => {
+          const mergedMap = new Map<string, SupportTicket>();
+          dbTickets.forEach((dt) => {
+            mergedMap.set(dt.id, dt);
           });
-        }
+          prev.forEach((lt) => {
+            if (lt.id === 'tick_1' && dbTickets.length > 0) return;
+            const isMyTicket = lt.userId === user.id || (user.email && lt.userEmail && lt.userEmail.toLowerCase() === user.email.toLowerCase());
+            if (isAdmin || isMyTicket) {
+              if (!mergedMap.has(lt.id)) {
+                mergedMap.set(lt.id, lt);
+                if (lt.id !== 'tick_1' && isMyTicket) {
+                  dbSaveTicket(lt).catch((e) => console.error('Error uploading local ticket to DB:', e));
+                }
+              }
+            }
+          });
+          return Array.from(mergedMap.values()).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        });
       } catch (err) {
         console.warn('Firestore database sync failed:', err);
       }
@@ -783,18 +794,26 @@ export default function App() {
     try {
       const isAdmin = user.email === 'horlandobe@gmail.com' || user.email === 'eventuelleboutique@gmail.com';
       const dbPayments = await dbFetchPayments(user.id, user.email, isAdmin);
-      if (dbPayments.length > 0) {
-        setPayments((prev) => {
-          const updated = [...dbPayments];
-          prev.forEach((lp) => {
-            if (!dbPayments.some((dp) => dp.id === lp.id)) {
-              updated.push(lp);
-              dbSavePayment(lp).catch((e) => console.error('Error uploading local payment to DB:', e));
-            }
-          });
-          return updated;
+      
+      setPayments((prev) => {
+        const mergedMap = new Map<string, PaymentRequest>();
+        dbPayments.forEach((dp) => {
+          mergedMap.set(dp.id, dp);
         });
-      }
+        prev.forEach((lp) => {
+          if (lp.id === 'pay_101' && dbPayments.length > 0) return;
+          const isMyPayment = lp.userId === user.id || (user.email && lp.userEmail && lp.userEmail.toLowerCase() === user.email.toLowerCase());
+          if (isAdmin || isMyPayment) {
+            if (!mergedMap.has(lp.id)) {
+              mergedMap.set(lp.id, lp);
+              if (lp.id !== 'pay_101' && isMyPayment) {
+                dbSavePayment(lp).catch((e) => console.error('Error uploading local payment to DB:', e));
+              }
+            }
+          }
+        });
+        return Array.from(mergedMap.values()).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      });
 
       // Also sync user profile to get instant credit/plan updates when user clicks Refresh in history tab
       const syncedUser = await dbSyncUser(user);
@@ -1125,7 +1144,7 @@ export default function App() {
   }, [dbUsers, user, adminUser, defaultClientUser]);
 
   const handleSwitchUser = (email: string, name?: string) => {
-    const isPro = email === 'horlandobe@gmail.com';
+    const isPro = email === 'horlandobe@gmail.com' || email === 'eventuelleboutique@gmail.com';
     const computedUserId = 'usr_' + email.toLowerCase().replace(/[^a-z0-9]/g, '_');
     
     // Retrieve previously stored user data to prevent wiping out tokens on reload/auth sync
@@ -1170,6 +1189,41 @@ export default function App() {
         createdAt: existing.createdAt || new Date().toISOString(),
       };
     });
+  };
+
+  const handleUpdateUserProfile = (updatedFields: Partial<UserProfile>) => {
+    setUser((prev) => {
+      const nextUser = { ...prev, ...updatedFields };
+      saveUser(nextUser);
+      if (nextUser.id && nextUser.id !== 'usr_client_default') {
+        dbSaveUser(nextUser).catch((err) =>
+          console.warn('Error saving user profile update to Firestore:', err)
+        );
+      }
+      return nextUser;
+    });
+  };
+
+  const handleLogout = async () => {
+    try {
+      await auth.signOut();
+    } catch (err) {
+      console.warn('Error signing out:', err);
+    }
+    setUser(defaultClientUser);
+    saveUser(defaultClientUser);
+    
+    // Clear project list so it doesn't leak for other users
+    setProjects([INITIAL_PROJECT]);
+    saveProjects([INITIAL_PROJECT]);
+    setCurrentProjectIdState(INITIAL_PROJECT.id);
+    setCurrentProjectId(INITIAL_PROJECT.id);
+    
+    // Reset payments and tickets so they don't leak
+    setPayments(getStoredPayments());
+    setTickets(getStoredTickets());
+    
+    setIsAuthOpen(true);
   };
 
   const handleSaveConnections = (updated: Partial<UserProfile>) => {
@@ -1266,7 +1320,7 @@ export default function App() {
           onOpenLocation={() => setIsLocationModalOpen(true)}
           onOpenAdmin={() => setIsAdminOpen(true)}
           onOpenAbout={() => setIsAboutOpen(true)}
-          onLogout={() => setIsAuthOpen(true)}
+          onLogout={handleLogout}
           onDuplicateProject={handleDuplicateProject}
           onDeleteProject={handleDeleteProject}
           onOpenHistoryModal={() => setIsHistoryModalOpen(true)}
@@ -1354,7 +1408,7 @@ export default function App() {
         projects={userProjects}
         isOpen={isDomainOpen}
         onClose={() => setIsDomainOpen(false)}
-        onUpdateUser={(updated) => setUser((prev) => ({ ...prev, ...updated }))}
+        onUpdateUser={handleUpdateUserProfile}
         onSendDomainToChat={(domainPrompt) => {
           setActiveTab('chat');
           handleSendMessage(domainPrompt);
@@ -1412,7 +1466,7 @@ export default function App() {
         user={user}
         isOpen={isReferralOpen}
         onClose={() => setIsReferralOpen(false)}
-        onUpdateUser={(updated) => setUser(updated)}
+        onUpdateUser={handleUpdateUserProfile}
       />
 
       <FaqModal isOpen={isFaqOpen} onClose={() => setIsFaqOpen(false)} />

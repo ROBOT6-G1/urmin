@@ -109,7 +109,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
           </div>
           <h2 className="text-xl font-extrabold text-white">Accès Refusé</h2>
           <p className="text-slate-400 text-xs">
-            L'accès à cette zone d'administration est strictement réservé à l'adresse e-mail <strong>horlandobe@gmail.com</strong>.
+            L'accès à cette zone d'administration est strictement réservé aux administrateurs autorisés.
           </p>
         </div>
       </div>

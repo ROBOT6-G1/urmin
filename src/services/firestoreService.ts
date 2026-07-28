@@ -46,7 +46,9 @@ export async function dbSyncUser(userProfile: UserProfile): Promise<UserProfile>
   try {
     const userDocRef = doc(db, 'users', userProfile.id);
     const userSnapshot = await getDoc(userDocRef);
-    const isAdmin = userProfile.email.toLowerCase() === 'horlandobe@gmail.com';
+    const isAdmin =
+      userProfile.email.toLowerCase() === 'horlandobe@gmail.com' ||
+      userProfile.email.toLowerCase() === 'eventuelleboutique@gmail.com';
 
     if (userSnapshot.exists()) {
       const dbUser = userSnapshot.data() as UserProfile;
