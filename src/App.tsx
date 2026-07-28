@@ -323,9 +323,6 @@ export default function App() {
             if (isAdmin || isMyPayment) {
               if (!mergedMap.has(lp.id)) {
                 mergedMap.set(lp.id, lp);
-                if (lp.id !== 'pay_101' && isMyPayment) {
-                  dbSavePayment(lp).catch((e) => console.error('Error uploading local payment to DB:', e));
-                }
               }
             }
           });
@@ -345,9 +342,6 @@ export default function App() {
             if (isAdmin || isMyTicket) {
               if (!mergedMap.has(lt.id)) {
                 mergedMap.set(lt.id, lt);
-                if (lt.id !== 'tick_1' && isMyTicket) {
-                  dbSaveTicket(lt).catch((e) => console.error('Error uploading local ticket to DB:', e));
-                }
               }
             }
           });
@@ -657,7 +651,7 @@ export default function App() {
                 }
               }
 
-              // Smart merge with HTML normalization: retain non-html files, clean up old html files when new html is returned, and update index.html properly
+              // Smart merge with case-insensitive normalization: retain all existing files and update/add returned files without deleting or renaming other HTML pages
               const mergedFilesMap = new Map<string, CodeFile>();
               let pExisting: CodeFile[] = [];
               if (Array.isArray(p.files)) {
@@ -666,15 +660,9 @@ export default function App() {
                 try { pExisting = JSON.parse(p.files); } catch { pExisting = []; }
               }
 
-              const hasNewHtml = newOrUpdatedFiles.some((f) => f && f.name && f.name.toLowerCase().endsWith('.html'));
-
               pExisting.forEach((f) => {
                 if (f && f.name) {
                   const lower = f.name.trim().toLowerCase();
-                  if (hasNewHtml && lower.endsWith('.html')) {
-                    // Skip old html files to prevent stale file duplication and preview sync mismatch
-                    return;
-                  }
                   mergedFilesMap.set(lower, f);
                 }
               });
@@ -682,7 +670,7 @@ export default function App() {
               newOrUpdatedFiles.forEach((f) => {
                 if (f && f.name) {
                   const lowerName = f.name.trim().toLowerCase();
-                  if (lowerName.endsWith('.html')) {
+                  if (lowerName === 'index.html') {
                     mergedFilesMap.set('index.html', {
                       ...f,
                       name: 'index.html',
@@ -806,9 +794,6 @@ export default function App() {
           if (isAdmin || isMyPayment) {
             if (!mergedMap.has(lp.id)) {
               mergedMap.set(lp.id, lp);
-              if (lp.id !== 'pay_101' && isMyPayment) {
-                dbSavePayment(lp).catch((e) => console.error('Error uploading local payment to DB:', e));
-              }
             }
           }
         });
@@ -1220,8 +1205,10 @@ export default function App() {
     setCurrentProjectId(INITIAL_PROJECT.id);
     
     // Reset payments and tickets so they don't leak
-    setPayments(getStoredPayments());
-    setTickets(getStoredTickets());
+    setPayments([]);
+    savePayments([]);
+    setTickets([]);
+    saveTickets([]);
     
     setIsAuthOpen(true);
   };
