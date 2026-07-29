@@ -54,6 +54,33 @@ export const PreviewView: React.FC<PreviewViewProps> = ({
   ];
 
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+  const htmlFiles = files.filter((f: any) => f && f.name && f.name.toLowerCase().endsWith('.html'));
+  const defaultHtmlPage = htmlFiles.find((f: any) => f.name.toLowerCase() === 'index.html')?.name || htmlFiles[0]?.name || 'index.html';
+  const [currentPreviewPage, setCurrentPreviewPage] = useState<string>(defaultHtmlPage);
+
+  React.useEffect(() => {
+    setCurrentPreviewPage(defaultHtmlPage);
+  }, [project.id, defaultHtmlPage]);
+
+  React.useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'PREVIEW_NAVIGATE') {
+        const targetPage = event.data.page;
+        // Clean target page (remove ./ or leading slash or query params / hashes)
+        const cleanedPage = targetPage.split('?')[0].split('#')[0].replace(/^\.\//, '').replace(/^\//, '');
+        const fileExists = files.some((f: any) => f && f.name && f.name.toLowerCase() === cleanedPage.toLowerCase());
+        if (fileExists) {
+          setCurrentPreviewPage(cleanedPage);
+        } else {
+          console.warn('Target page does not exist in project files:', cleanedPage);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [files]);
+
   const [selectedFileName, setSelectedFileName] = useState<string>(
     files[0]?.name || 'index.html'
   );
@@ -144,22 +171,53 @@ export const PreviewView: React.FC<PreviewViewProps> = ({
 
   // Combine HTML + CSS + JS into single bundle for iframe preview if separate
   const getCombinedHtml = () => {
-    const htmlFile = files.find((f: any) => f && f.name && f.name.toLowerCase() === 'index.html') || files.find((f: any) => f && f.name && f.name.endsWith('.html')) || files[0];
-    const cssFile = files.find((f: any) => f && f.name && f.name.endsWith('.css'));
-    const jsFile = files.find((f: any) => f && f.name && f.name.endsWith('.js'));
+    const htmlFile = files.find((f: any) => f && f.name && f.name.toLowerCase() === currentPreviewPage.toLowerCase()) ||
+                     files.find((f: any) => f && f.name && f.name.toLowerCase() === 'index.html') ||
+                     files[0];
 
     if (!htmlFile) return '<h1>Aucun contenu HTML</h1>';
 
     let content = htmlFile.content;
 
-    // Inject CSS if present and not already embedded
-    if (cssFile && !content.includes(cssFile.content.substring(0, 20))) {
-      content = content.replace('</head>', `<style>${cssFile.content}</style></head>`);
+    // 1. Inline CSS stylesheets referenced in the HTML
+    // Match <link ... href="filename.css" ...> or similar
+    const linkRegex = /<link\s+[^>]*href=["']([^"']+\.css)["'][^>]*>/gi;
+    content = content.replace(linkRegex, (match, cssName) => {
+      const baseName = cssName.split('/').pop();
+      const cssFile = files.find((f: any) => f && f.name && f.name.toLowerCase() === baseName.toLowerCase());
+      if (cssFile) {
+        return `<style>/* Injected ${baseName} */\n${cssFile.content}</style>`;
+      }
+      return match;
+    });
+
+    // Fallback CSS: Inline style.css or first found .css if no style tags were injected
+    if (!content.includes('<style>') && !content.includes('</style>')) {
+      const cssFile = files.find((f: any) => f && f.name && f.name.endsWith('.css'));
+      if (cssFile) {
+        content = content.replace('</head>', `<style>${cssFile.content}</style></head>`);
+      }
     }
 
-    // Inject JS if present and not already embedded
-    if (jsFile && !content.includes(jsFile.content.substring(0, 20))) {
-      content = content.replace('</body>', `<script>${jsFile.content}</script></body>`);
+    // 2. Inline JS scripts referenced in the HTML
+    // Match <script ... src="filename.js" ...></script>
+    const scriptRegex = /<script\s+[^>]*src=["']([^"']+\.js)["'][^>]*><\/script>/gi;
+    content = content.replace(scriptRegex, (match, jsName) => {
+      const baseName = jsName.split('/').pop();
+      const jsFile = files.find((f: any) => f && f.name && f.name.toLowerCase() === baseName.toLowerCase());
+      if (jsFile) {
+        return `<script>// Injected ${baseName}\n${jsFile.content}</script>`;
+      }
+      return match;
+    });
+
+    // Fallback JS: Inline app.js or similar
+    if (!content.includes('// Injected ')) {
+      const jsFile = files.find((f: any) => f && f.name && f.name.toLowerCase() === 'app.js') || 
+                     files.find((f: any) => f && f.name && f.name.endsWith('.js'));
+      if (jsFile) {
+        content = content.replace('</body>', `<script>${jsFile.content}</script></body>`);
+      }
     }
 
     // Check for location.json or project.location injection
@@ -272,6 +330,26 @@ function googleTranslateElementInit() {
 <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>`;
       content = content.replace('</body>', `${translatorWidget}</body>`);
     }
+
+    // 3. Inject Link Interceptor for inner-preview navigation
+    const interceptorScript = `
+<script>
+(function() {
+  // Listen to clicks on <a> tags to intercept navigation
+  document.addEventListener('click', function(e) {
+    const link = e.target.closest('a');
+    if (link) {
+      const href = link.getAttribute('href');
+      if (href && !href.startsWith('http') && !href.startsWith('#') && !href.startsWith('mailto:') && !href.startsWith('tel:')) {
+        e.preventDefault();
+        window.parent.postMessage({ type: 'PREVIEW_NAVIGATE', page: href }, '*');
+      }
+    }
+  });
+})();
+</script>
+`;
+    content = content.replace('</body>', `${interceptorScript}</body>`);
 
     return content;
   };
@@ -491,8 +569,21 @@ function googleTranslateElementInit() {
                 <span className="w-3 h-3 rounded-full bg-amber-500/80" />
                 <span className="w-3 h-3 rounded-full bg-emerald-500/80" />
               </div>
-              <div className="bg-slate-950 px-4 py-1 rounded-md text-[11px] font-mono text-slate-300 border border-slate-800 truncate max-w-md">
-                {liveUrl || `https://preview.${project.title.toLowerCase().replace(/[^a-z0-9]/g, '')}.devwebia.mg`}
+              <div className="flex items-center gap-1 bg-slate-950 px-3 py-1 rounded-md text-[11px] font-mono text-slate-300 border border-slate-800 max-w-md">
+                <span className="text-slate-500 shrink-0 select-none">
+                  {liveUrl ? liveUrl.replace(/\/$/, '') + '/' : `https://preview.${project.title.toLowerCase().replace(/[^a-z0-9]/g, '')}.devwebia.mg/`}
+                </span>
+                <select
+                  value={currentPreviewPage}
+                  onChange={(e) => setCurrentPreviewPage(e.target.value)}
+                  className="bg-transparent text-emerald-400 font-bold outline-none cursor-pointer border-none p-0 focus:ring-0 text-[11px] h-auto leading-none"
+                >
+                  {htmlFiles.map((f: any) => (
+                    <option key={f.name} value={f.name} className="bg-slate-900 text-white">
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               <button
                 onClick={() => {
