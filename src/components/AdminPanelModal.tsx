@@ -123,8 +123,9 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     const val = newKeyValue.trim();
     if (!val) return;
 
-    if (!val.startsWith('AIzaSy') || val.includes('<') || val.includes('>')) {
-      setKeyError("Ny fanalahidy dia tokony hanomboka amin'ny 'AIzaSy' (Gemini API Key). Hamarino tsara fa tsy kaody hafa na sary na sora-baventy no nampidirinao.");
+    const isPrefixValid = val.startsWith('AIza') || val.startsWith('AQ') || (val.length >= 25 && val.length <= 80);
+    if (!isPrefixValid || val.includes('<') || val.includes('>')) {
+      setKeyError("Ny fanalahidy dia tokony hanomboka amin'ny 'AIza' na 'AQ' (Gemini API Key). Hamarino tsara fa tsy kaody hafa na sary na sora-baventy no nampidirinao.");
       return;
     }
 

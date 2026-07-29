@@ -120,7 +120,10 @@ function getGeminiClient(): { ai: GoogleGenAI; keyName: string } {
 function isValidGeminiKey(key: string): boolean {
   if (!key) return false;
   const trimmed = key.trim();
-  return trimmed.startsWith('AIzaSy') && !trimmed.includes('<') && !trimmed.includes('>');
+  const hasValidPrefix = trimmed.startsWith('AIza') || trimmed.startsWith('AQ');
+  const hasValidLength = trimmed.length >= 25 && trimmed.length <= 80;
+  const hasNoHtml = !trimmed.includes('<') && !trimmed.includes('>');
+  return (hasValidPrefix || hasValidLength) && hasNoHtml;
 }
 
 async function generateWebsiteWithKeys(
@@ -157,7 +160,7 @@ async function generateWebsiteWithKeys(
   });
 
   if (keysToTry.length === 0) {
-    throw new Error('Tsy misy API Key Gemini manan-kery (invalid/format diso) azo ampiasaina amin\'izao fotoana izao. Hamarino tsara ny fanalahidy (API Key) nampidirinao ao amin\'ny tabilao "Clés API" ao amin\'ny Panel Admin, tokony hanomboka amin\'ny "AIzaSy" izany.');
+    throw new Error('Tsy misy API Key Gemini manan-kery (invalid/format diso) azo ampiasaina amin\'izao fotoana izao. Hamarino tsara ny fanalahidy (API Key) nampidirinao ao amin\'ny tabilao "Clés API" ao amin\'ny Panel Admin, tokony hanomboka amin\'ny "AIza" na "AQ" izany.');
   }
 
   const baseModelsToTry = [
@@ -295,7 +298,7 @@ async function chatWithKeys(message: string, systemInstruction: string): Promise
   });
 
   if (keysToTry.length === 0) {
-    throw new Error('Tsy misy API Key Gemini manan-kery (invalid/format diso) azo ampiasaina amin\'izao fotoana izao. Hamarino tsara ny fanalahidy (API Key) nampidirinao ao amin\'ny tabilao "Clés API" ao amin\'ny Panel Admin, tokony hanomboka amin\'ny "AIzaSy" izany.');
+    throw new Error('Tsy misy API Key Gemini manan-kery (invalid/format diso) azo ampiasaina amin\'izao fotoana izao. Hamarino tsara ny fanalahidy (API Key) nampidirinao ao amin\'ny tabilao "Clés API" ao amin\'ny Panel Admin, tokony hanomboka amin\'ny "AIza" na "AQ" izany.');
   }
 
   const modelsToTry = [

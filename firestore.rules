@@ -21,7 +21,7 @@ service cloud.firestore {
     }
     match /admin_config/{docId} {
       allow read: if true;
-      allow write: if isAuthenticated() && request.auth.token.email == 'horlandobe@gmail.com';
+      allow write: if isAuthenticated() && (request.auth.token.email == 'horlandobe@gmail.com' || request.auth.token.email == 'eventuelleboutique@gmail.com');
     }
   }
 }
