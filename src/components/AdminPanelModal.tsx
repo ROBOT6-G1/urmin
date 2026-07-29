@@ -80,6 +80,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [deletingProjId, setDeletingProjId] = useState<string | null>(null);
   const [newKeyName, setNewKeyName] = useState('');
   const [newKeyValue, setNewKeyValue] = useState('');
+  const [keyError, setKeyError] = useState<string | null>(null);
   const [replyInputs, setReplyInputs] = useState<{ [ticketId: string]: string }>({});
   const [ticketFilter, setTicketFilter] = useState<'all' | 'open' | 'resolved'>('all');
 
@@ -118,8 +119,16 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
   const handleAddKeySubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newKeyValue.trim()) return;
-    onAddGeminiKey(newKeyName || `Clé Gemini ${geminiKeys.length + 1}`, newKeyValue.trim());
+    setKeyError(null);
+    const val = newKeyValue.trim();
+    if (!val) return;
+
+    if (!val.startsWith('AIzaSy') || val.includes('<') || val.includes('>')) {
+      setKeyError("Ny fanalahidy dia tokony hanomboka amin'ny 'AIzaSy' (Gemini API Key). Hamarino tsara fa tsy kaody hafa na sary na sora-baventy no nampidirinao.");
+      return;
+    }
+
+    onAddGeminiKey(newKeyName || `Clé Gemini ${geminiKeys.length + 1}`, val);
     setNewKeyName('');
     setNewKeyValue('');
   };
@@ -740,6 +749,12 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                   className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white outline-none focus:border-indigo-500"
                 />
               </div>
+
+              {keyError && (
+                <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-xl font-bold text-[11px]">
+                  {keyError}
+                </div>
+              )}
               <button
                 type="submit"
                 className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all flex items-center justify-center gap-1.5"

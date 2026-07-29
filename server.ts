@@ -117,6 +117,12 @@ function getGeminiClient(): { ai: GoogleGenAI; keyName: string } {
   return { ai, keyName };
 }
 
+function isValidGeminiKey(key: string): boolean {
+  if (!key) return false;
+  const trimmed = key.trim();
+  return trimmed.startsWith('AIzaSy') && !trimmed.includes('<') && !trimmed.includes('>');
+}
+
 async function generateWebsiteWithKeys(
   fullPrompt: string,
   systemInstruction: string,
@@ -128,27 +134,30 @@ async function generateWebsiteWithKeys(
 
   // 0. User's Personal Custom Gemini Key (Prioritized if provided and active)
   if (userCustomKeyConfig && userCustomKeyConfig.apiKey && userCustomKeyConfig.apiKey.trim()) {
-    keysToTry.push({
-      id: 'user_personal_key',
-      key: userCustomKeyConfig.apiKey.trim(),
-      name: 'Clé IA Personnel Client',
-    });
+    const pKey = userCustomKeyConfig.apiKey.trim();
+    if (isValidGeminiKey(pKey)) {
+      keysToTry.push({
+        id: 'user_personal_key',
+        key: pKey,
+        name: 'Clé IA Personnel Client',
+      });
+    }
   }
 
   // 1. System Default Key
   const defaultKey = process.env.GEMINI_API_KEY;
-  if (defaultKey) {
-    keysToTry.push({ id: null, key: defaultKey, name: 'System Default Key' });
+  if (defaultKey && isValidGeminiKey(defaultKey)) {
+    keysToTry.push({ id: null, key: defaultKey.trim(), name: 'System Default Key' });
   }
 
   // 2. Add active custom admin keys
-  const activeCustomKeys = adminGeminiKeys.filter((k) => k.isActive && !k.isQuotaExhausted);
+  const activeCustomKeys = adminGeminiKeys.filter((k) => k.isActive && !k.isQuotaExhausted && isValidGeminiKey(k.key));
   activeCustomKeys.forEach((k) => {
-    keysToTry.push({ id: k.id, key: k.key, name: k.name });
+    keysToTry.push({ id: k.id, key: k.key.trim(), name: k.name });
   });
 
   if (keysToTry.length === 0) {
-    throw new Error('Tsy misy API Key Gemini azo ampiasaina amin\'izao fotoana izao.');
+    throw new Error('Tsy misy API Key Gemini manan-kery (invalid/format diso) azo ampiasaina amin\'izao fotoana izao. Hamarino tsara ny fanalahidy (API Key) nampidirinao ao amin\'ny tabilao "Clés API" ao amin\'ny Panel Admin, tokony hanomboka amin\'ny "AIzaSy" izany.');
   }
 
   const baseModelsToTry = [
@@ -276,17 +285,17 @@ async function chatWithKeys(message: string, systemInstruction: string): Promise
   const keysToTry: { id: string | null; key: string; name: string }[] = [];
 
   const defaultKey = process.env.GEMINI_API_KEY;
-  if (defaultKey) {
-    keysToTry.push({ id: null, key: defaultKey, name: 'System Default Key' });
+  if (defaultKey && isValidGeminiKey(defaultKey)) {
+    keysToTry.push({ id: null, key: defaultKey.trim(), name: 'System Default Key' });
   }
 
-  const activeCustomKeys = adminGeminiKeys.filter((k) => k.isActive && !k.isQuotaExhausted);
+  const activeCustomKeys = adminGeminiKeys.filter((k) => k.isActive && !k.isQuotaExhausted && isValidGeminiKey(k.key));
   activeCustomKeys.forEach((k) => {
-    keysToTry.push({ id: k.id, key: k.key, name: k.name });
+    keysToTry.push({ id: k.id, key: k.key.trim(), name: k.name });
   });
 
   if (keysToTry.length === 0) {
-    throw new Error('Tsy misy API Key Gemini azo ampiasaina amin\'izao fotoana izao.');
+    throw new Error('Tsy misy API Key Gemini manan-kery (invalid/format diso) azo ampiasaina amin\'izao fotoana izao. Hamarino tsara ny fanalahidy (API Key) nampidirinao ao amin\'ny tabilao "Clés API" ao amin\'ny Panel Admin, tokony hanomboka amin\'ny "AIzaSy" izany.');
   }
 
   const modelsToTry = [
@@ -910,6 +919,14 @@ app.post('/api/admin/keys/sync', async (req, res) => {
       isQuotaExhausted: k.isQuotaExhausted || false
     }));
     console.log(`[DEVWEBIA] Successfully synced ${adminGeminiKeys.length} Gemini API keys from client.`);
+    if (db) {
+      try {
+        await setDoc(doc(db, 'admin_config', 'gemini_keys'), { keys: adminGeminiKeys });
+        console.log('[DEVWEBIA] Successfully saved synced keys to Firestore from server.');
+      } catch (err) {
+        console.warn('[DEVWEBIA] Error saving synced keys to Firestore from server:', err);
+      }
+    }
   }
   res.json({ success: true, keys: adminGeminiKeys });
 });

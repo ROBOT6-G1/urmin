@@ -221,7 +221,8 @@ export default function App() {
       console.warn('Error syncing keys with server:', err);
     });
 
-    if (user?.email === 'horlandobe@gmail.com') {
+    const isAdmin = user?.email === 'horlandobe@gmail.com' || user?.email === 'eventuelleboutique@gmail.com';
+    if (isAdmin) {
       const syncToFirestore = async () => {
         try {
           const docRef = doc(db, 'admin_config', 'gemini_keys');
